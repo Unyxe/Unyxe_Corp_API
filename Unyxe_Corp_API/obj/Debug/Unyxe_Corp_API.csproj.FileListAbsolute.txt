@@ -1,0 +1,8 @@
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe.config
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.pdb
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.AssemblyReference.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.SuggestedBindingRedirects.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CoreCompileInputs.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb
