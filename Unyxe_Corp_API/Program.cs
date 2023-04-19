@@ -31,46 +31,83 @@ namespace LoginSystem_server
 
         static string databases_dir = home_dir + @"Databases\";
 
-        static string[] apps = { "chores" };
+        static string[][] root_users =
+        {
+            new string[] { "admin", "admin", "Admin" },
+            new string[] { "Timur", "secret123", "User" },
+        };
+        static string[][] root_auth_tokens =
+        {
+            new string[] { "admin", "c90010128ac4159bd196b5bb5d1a99dc" },
+            new string[] { "Timur", "0ad525712b9c429a7205304c591f3cf5" },
+        };
+
+
+        static string[] apps = { "root", "chores" };
         static string[][] database_names =
         {
-            new string[] {"users", "auth_tokens", "chores"}
+            new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods", "method_acls", "column_names", "default_values"},
+            new string[] {"users", "auth_tokens", "chores"},
         };
         static string[][] database_paths =
         {
-            new string[] {@"ChoresAPP\us.db", @"ChoresAPP\au.db", @"ChoresAPP\ch.db"}
+            new string[] {@"root\us.db", @"root\au.db", @"root\apps.db", @"root\dbnames.db",@"root\dbpaths.db",@"root\roles.db",@"root\methods.db",@"root\method_acls.db",@"root\column_names.db",@"root\def_vals.db",},
+            new string[] {@"ChoresAPP\us.db", @"ChoresAPP\au.db", @"ChoresAPP\ch.db"},
         };
         static string[][] roles =
         {
-            new string[] { "Admin", "User", "Anonymous" }
+            new string[] { "Admin", "User", "Anonymous" },
+            new string[] { "Admin", "User", "Anonymous" },
         };
         static string[][][] column_names =
         {
+            //root
+            new string[][]
+            {
+                new string[] { "username", "password", "role"},
+                new string[] { "username", "auth_token"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+                new string[] { "null"},
+            },
             //APP: chores
             new string[][]
             {
                 new string[] { "username", "password", "role"},
                 new string[] { "username", "auth_token"},
                 new string[] { "username_sender", "username_reciever", "chore_type", "chore_desc", "done_it"},
-            }
+            },
         };
         static string[][][] default_values =
         {
+            //root
+            new string[][]
+            {
+                new string[] { "null", "null", "Admin"},
+                new string[] { "null", "null"},
+            },
             //APP: chores
             new string[][]
             {
                 new string[] { "null", "null", "User"},
                 new string[] { "null", "null"},
                 new string[] { "null", "null", "null", "-", "false"},
-            }
+            },
         };
         static string[][] available_methods =
         {
-            new string[] { "sign", "log"}
+            new string[] { "sign", "log", "new_app", "delete_app", "new_database", "delete_database"},
+            new string[] { "sign", "log", "new_chore"},
         };
         static string[][] method_permissions =
         {
-            new string[]{ "0:2", "0:2" },
+            new string[]{ "0", "0:2", "0", "0", "0", "0"},
+            new string[]{ "0:2", "0:2", "0:1"  },
         };
 
         static List<string[]>[][] databases = new List<string[]>[apps.Length][];
@@ -84,6 +121,9 @@ namespace LoginSystem_server
 
         public static void Main()
         {
+            ReadRootDatabase();
+            WriteRootDatabase();
+            Console.ReadLine();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\t\tUnyxe Corporation API\n\n");
             Console.WriteLine("Database initialization...");
@@ -91,6 +131,7 @@ namespace LoginSystem_server
             Console.WriteLine("Done!\n");
             Console.WriteLine("Database reading...");
             ReadDataFromDatabase();
+            WriteDataToDatabase();
             Console.WriteLine("Done!\n");
             Console.WriteLine("Database structure displayment...");
             DisplayRAMDatabaseStructure();
@@ -225,6 +266,10 @@ namespace LoginSystem_server
                         catch (Exception)
                         {
                             Send("Failed! Server error occured!", endp);
+                        }
+                        if(app == "root")
+                        {
+                            WriteRootDatabase();
                         }
                         WriteDataToDatabase();
                     }
@@ -482,6 +527,11 @@ namespace LoginSystem_server
             //_______________________________________________
 
             int app_index = GetAppIndex(app);
+
+            //Root database refresh
+            //_______________________________________________
+
+            //_______________________________________________
 
 
 
@@ -907,6 +957,100 @@ namespace LoginSystem_server
 
         }
 
+        
+        static void ClearRAMDatabases()
+        {
+            for (int i = 0; i < apps.Length; i++)
+            {
+                for (int j = 0; j < database_names[i].Length; j++)
+                {
+                    databases[i][j].Clear();
+                }
+            }
+        }
+        static void InitRAMDatabases()
+        {
+            for (int i = 0; i < apps.Length; i++)
+            {
+                databases[i] = new List<string[]>[database_names[i].Length];
+                for (int j = 0; j < database_names[i].Length; j++)
+                {
+                    databases[i][j] = new List<string[]>();
+                }
+            }
+        }
+        static void DisplayArray(string[] arr)
+        {
+            for (int i = 0; i < arr.Length; i++)
+            {
+                Console.WriteLine("-");
+                Console.WriteLine(arr[i]);
+            }
+        }
+        static void DisplayArray(string[][] arr)
+        {
+            for (int i = 0; i < arr.Length; i++)
+            {
+                Console.WriteLine("-");
+                for (int j = 0; j < arr[i].Length; j++)
+                {
+                    Console.WriteLine("----");
+
+                    Console.WriteLine(arr[i][j]);
+                }
+            }
+        }
+        static void DisplayArray(string[][][] arr)
+        {
+            for (int i = 0; i < arr.Length; i++)
+            {
+                Console.WriteLine("-");
+                for (int j = 0; j < arr[i].Length; j++)
+                {
+                    Console.WriteLine("----");
+                    for (int k = 0; k < arr[i][j].Length; k++)
+                    {
+                        Console.WriteLine("-------");
+
+                        Console.WriteLine(arr[i][j][k]);
+                    }
+                }
+            }
+        }
+        static void DisplayRAMDatabaseStructure()
+        {
+            for (int i = 0; i < apps.Length; i++)
+            {
+                Console.WriteLine("-" + apps[i]);
+                for (int j = 0; j < database_names[i].Length; j++)
+                {
+                    Console.WriteLine("----" + database_names[i][j]);
+                    for (int k = 0; k < databases[i][j].Count; k++)
+                    {
+                        string[] entry = databases[i][j][k];
+                        Console.Write("-------");
+                        bool is_col_null = false;
+                        if (column_names[i][j][0] == "null")
+                        {
+                            is_col_null = true;
+                        }
+                        for (int l = 0; l < entry.Length; l++)
+                        {
+                            if (!is_col_null)
+                            {
+                                Console.Write(column_names[i][j][l] + ":");
+                            }
+                            Console.Write(entry[l]);
+                            if (l != entry.Length - 1)
+                            {
+                                Console.Write("  ");
+                            }
+                        }
+                        Console.WriteLine();
+                    }
+                }
+            }
+        }
         static void ClearDatabases()
         {
             foreach (string[] app_dbs in database_paths)
@@ -922,6 +1066,7 @@ namespace LoginSystem_server
         {
             ClearDatabases();
             int inc_app = 0;
+
             foreach (string[] app_dbs in database_paths)
             {
                 int inc_db = 0;
@@ -949,57 +1094,12 @@ namespace LoginSystem_server
                 inc_app++;
             }
         }
-        static void ClearRAMDatabases()
-        {
-            for (int i = 0; i < apps.Length; i++)
-            {
-                for (int j = 0; j < database_names[i].Length; j++)
-                {
-                    databases[i][j].Clear();
-                }
-            }
-        }
-        static void InitRAMDatabases()
-        {
-            for (int i = 0; i < apps.Length; i++)
-            {
-                databases[i] = new List<string[]>[database_names[i].Length];
-                for (int j = 0; j < database_names[i].Length; j++)
-                {
-                    databases[i][j] = new List<string[]>();
-                }
-            }
-        }
-        static void DisplayRAMDatabaseStructure()
-        {
-            for (int i = 0; i < apps.Length; i++)
-            {
-                Console.WriteLine("-" + apps[i]);
-                for (int j = 0; j < database_names[i].Length; j++)
-                {
-                    Console.WriteLine("----" + database_names[i][j]);
-                    for (int k = 0; k < databases[i][j].Count; k++)
-                    {
-                        string[] entry = databases[i][j][k];
-                        Console.Write("-------");
-                        for (int l = 0; l < entry.Length; l++)
-                        {
-                            Console.Write(column_names[i][j][l] + ":" + entry[l]);
-                            if (l != entry.Length - 1)
-                            {
-                                Console.Write("  ");
-                            }
-                        }
-                        Console.WriteLine();
-                    }
-                }
-            }
-        }
         static void ReadDataFromDatabase()
         {
             ClearRAMDatabases();
 
             int inc_app = 0;
+            
             foreach (string[] app_dbs in database_paths)
             {
                 int inc_db = 0;
@@ -1020,6 +1120,423 @@ namespace LoginSystem_server
                     inc_db++;
                 }
                 inc_app++;
+            }
+        }
+        static void ReadRootDatabase()
+        {
+            int root_app_index = GetAppIndex("root");
+            for (int i = 0; i < database_paths[root_app_index].Length; i++)
+            {
+                FileStream fs = new FileStream(databases_dir + database_paths[root_app_index][i], FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                StreamReader reader = new StreamReader(fs);
+                switch (database_names[root_app_index][i])
+                {
+                    case "users":
+                        {
+                            List<string[]> users_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                users_list.Add(line.Split('~'));
+                            }
+                            root_users = new string[users_list.Count][];
+                            for (int j = 0; j < users_list.Count; j++)
+                            {
+                                root_users[j] = users_list[j];
+                            }
+                        }
+                        break;
+                    case "auth_tokens":
+                        {
+                            List<string[]> auth_tokens_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                auth_tokens_list.Add(line.Split('~'));
+                            }
+                            root_auth_tokens = new string[auth_tokens_list.Count][];
+                            for (int j = 0; j < auth_tokens_list.Count; j++)
+                            {
+                                root_auth_tokens[j] = auth_tokens_list[j];
+                            }
+                        }
+                        break;
+                    case "apps":
+                        {
+                            apps = reader.ReadLine().Split('~');
+                        }
+                        break;
+                    case "database_names":
+                        {
+                            List<string[]> db_names_list = new List<string[]>(); 
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                db_names_list.Add(line.Split('~'));
+                            }
+                            database_names = new string[db_names_list.Count][];
+                            for(int j = 0; j < db_names_list.Count; j++)
+                            {
+                                database_names[j] = db_names_list[j];
+                            }
+                        }
+                        break;
+                    case "database_paths":
+                        {
+                            List<string[]> db_paths_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                db_paths_list.Add(line.Split('~'));
+                            }
+                            database_paths = new string[db_paths_list.Count][];
+                            for (int j = 0; j < db_paths_list.Count; j++)
+                            {
+                                database_paths[j] = db_paths_list[j];
+                            }
+                        }
+                        break;
+                    case "roles":
+                        {
+                            List<string[]> roles_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                roles_list.Add(line.Split('~'));
+                            }
+                            roles = new string[roles_list.Count][];
+                            for (int j = 0; j < roles_list.Count; j++)
+                            {
+                                roles[j] = roles_list[j];
+                            }
+                        }
+                        break;
+                    case "methods":
+                        {
+                            List<string[]> methods_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                methods_list.Add(line.Split('~'));
+                            }
+                            available_methods = new string[methods_list.Count][];
+                            for (int j = 0; j < methods_list.Count; j++)
+                            {
+                                available_methods[j] = methods_list[j];
+                            }
+                        }
+                        break;
+                    case "method_acls":
+                        {
+                            List<string[]> method_acls_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                method_acls_list.Add(line.Split('~'));
+                            }
+                            method_permissions = new string[method_acls_list.Count][];
+                            for (int j = 0; j < method_acls_list.Count; j++)
+                            {
+                                method_permissions[j] = method_acls_list[j];
+                            }
+                        }
+                        break;
+                    case "column_names":
+                        {
+                            List<string[][]> column_names_list = new List<string[][]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                string[] splitted = line.Split('~');
+                                List<string[]> list_splitted = new List<string[]>();
+                                foreach(string s in splitted)
+                                {
+                                    list_splitted.Add(s.Split('¬'));
+                                }
+                                string[][] array_splitted = new string[list_splitted.Count][];
+                                for(int j = 0; j < list_splitted.Count; j++)
+                                {
+                                    array_splitted[j] = list_splitted[j];
+                                }
+                                column_names_list.Add(array_splitted);
+                            }
+                            column_names = new string[column_names_list.Count][][];
+                            for (int j = 0; j < column_names_list.Count; j++)
+                            {
+                                column_names[j] = column_names_list[j];
+                            }
+                        }
+                        break;
+                    case "default_values":
+                        {
+                            List<string[][]> def_vals_list = new List<string[][]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                string[] splitted = line.Split('~');
+                                List<string[]> list_splitted = new List<string[]>();
+                                foreach (string s in splitted)
+                                {
+                                    list_splitted.Add(s.Split('¬'));
+                                }
+                                string[][] array_splitted = new string[list_splitted.Count][];
+                                for (int j = 0; j < list_splitted.Count; j++)
+                                {
+                                    array_splitted[j] = list_splitted[j];
+                                }
+                                def_vals_list.Add(array_splitted);
+                            }
+                            default_values = new string[def_vals_list.Count][][];
+                            for (int j = 0; j < def_vals_list.Count; j++)
+                            {
+                                default_values[j] = def_vals_list[j];
+                            }
+                        }
+                        break;
+                }
+                reader.Close();
+            }
+        }
+        static void WriteRootDatabase()
+        {
+            ClearRootDatabase();
+            int root_app_index = GetAppIndex("root");
+            for(int i = 0; i < database_paths[root_app_index].Length; i++)
+            {
+                FileStream fs = new FileStream(databases_dir + database_paths[root_app_index][i], FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                StreamWriter writer = new StreamWriter(fs);
+                switch (database_names[root_app_index][i])
+                {
+                    case "users":
+                        {
+                            foreach (string[] user in root_users)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < user.Length; j++)
+                                {
+                                    entry += user[j];
+                                    if (j != user.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "auth_tokens":
+                        {
+                            foreach (string[] auth_token in root_auth_tokens)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < auth_token.Length; j++)
+                                {
+                                    entry += auth_token[j];
+                                    if (j != auth_token.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "apps":
+                        {
+                            string entry = "";
+                            for(int j = 0; j< apps.Length; j++)
+                            {
+                                entry += apps[j];
+                                if(j != apps.Length - 1)
+                                {
+                                    entry += "~";
+                                }
+                            }
+                            writer.WriteLine(entry);
+                        }
+                        break;
+                    case "database_names":
+                        {
+                            foreach (string[] db_names in database_names)
+                            {
+                                string entry = "";
+                                for(int j = 0; j < db_names.Length; j++)
+                                {
+                                    entry += db_names[j];
+                                    if(j != db_names.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "database_paths":
+                        {
+                            foreach (string[] db_paths in database_paths)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < db_paths.Length; j++)
+                                {
+                                    entry += db_paths[j];
+                                    if (j != db_paths.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "roles":
+                        {
+                            foreach (string[] roles_n in roles)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < roles_n.Length; j++)
+                                {
+                                    entry += roles_n[j];
+                                    if (j != roles_n.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "methods":
+                        {
+                            foreach (string[] methods in available_methods)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < methods.Length; j++)
+                                {
+                                    entry += methods[j];
+                                    if (j != methods.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "method_acls":
+                        {
+                            foreach (string[] methods_acls in method_permissions)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < methods_acls.Length; j++)
+                                {
+                                    entry += methods_acls[j];
+                                    if (j != methods_acls.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "column_names":
+                        {
+                            foreach (string[][] column_names_app in column_names)
+                            {
+                                string entry = "";
+
+                                for (int j = 0; j < column_names_app.Length; j++)
+                                {
+                                    for(int k = 0; k < column_names_app[j].Length; k++)
+                                    {
+                                        entry += column_names_app[j][k];
+                                        if(k != column_names_app[j].Length - 1)
+                                        {
+                                            entry += "¬";
+                                        }
+                                    }
+                                    if(j != column_names_app.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                    case "default_values":
+                        {
+                            foreach (string[][] def_values_app in default_values)
+                            {
+                                string entry = "";
+
+                                for (int j = 0; j < def_values_app.Length; j++)
+                                {
+                                    for (int k = 0; k < def_values_app[j].Length; k++)
+                                    {
+                                        entry += def_values_app[j][k];
+                                        if (k != def_values_app[j].Length - 1)
+                                        {
+                                            entry += "¬";
+                                        }
+                                    }
+                                    if (j != def_values_app.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+                }
+                writer.Close();
+            }
+        }
+        static void ClearRootDatabase()
+        {
+            int app_ins = GetAppIndex("root");
+            foreach (string db_path in database_paths[app_ins])
+            {
+                FileStream fs = new FileStream(databases_dir + db_path, FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite);
+                fs.Close();
             }
         }
         public static string CreateMD5(string input)
