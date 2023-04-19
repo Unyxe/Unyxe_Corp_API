@@ -1,0 +1,39 @@
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.AssemblyReference.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.SuggestedBindingRedirects.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.AssemblyReference.cache
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.SuggestedBindingRedirects.cache
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\LoginSystem1Try\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.AssemblyReference.cache
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.SuggestedBindingRedirects.cache
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+C:\Users\natha\Downloads\LoginSystem_client\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.AssemblyReference.cache
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.SuggestedBindingRedirects.cache
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\TwitterProject\Twi'eh Project\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csprojAssemblyReference.cache
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
