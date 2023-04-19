@@ -587,6 +587,9 @@ namespace LoginSystem_server
         }
 
 
+        //___________________________________
+        //Functions used by apps
+
         static string LogIn(string[][] parameters, string app)
         {
             string success_login = "success";
@@ -623,7 +626,7 @@ namespace LoginSystem_server
                 success_signin = "username_already_present";
                 return success_signin;
             }
-            string[] new_entry = new string[default_values.Length];
+            string[] new_entry = new string[default_values[app_index][db_index].Length];
             for(int i = 0; i < new_entry.Length; i++)
             {
                 if(column_names[app_index][db_index][i] == "username")
@@ -639,9 +642,59 @@ namespace LoginSystem_server
                     new_entry[i] = default_values[app_index][db_index][i];
                 }
             }
-            databases[app_index][db_index].Add(new string[] { username, password, default_values[app_index][db_index][2]});
+            databases[app_index][db_index].Add(new_entry);
             return success_signin;
         }
+
+        static string AddChore(string[][] parameters, string app)
+        {
+            string success_adding = "success";
+            int app_index = GetAppIndex(app);
+            int db_index = GetDatabaseIndex(app, "chores");
+            int username_sender_index = GetParameterIndex(parameters, "username_sender");
+            int username_reciever_index = GetParameterIndex(parameters, "username_reciever");
+            int chore_type_index = GetParameterIndex(parameters, "chore_type");
+            int chore_desc_index = GetParameterIndex(parameters, "chore_desc");
+
+            string username_sender = parameters[username_sender_index][1];
+            string username_reciever = parameters[username_reciever_index][1];
+            string chore_type = parameters[chore_type_index][1];
+            string chore_desc = parameters[chore_desc_index][1];
+
+            string[] new_entry = new string[default_values[app_index][db_index].Length];
+            for (int i = 0; i < new_entry.Length; i++)
+            {
+                if (column_names[app_index][db_index][i] == "username_sender")
+                {
+                    new_entry[i] = username_sender;
+                }
+                if (column_names[app_index][db_index][i] == "username_reciever")
+                {
+                    new_entry[i] = username_reciever;
+                }
+                if (column_names[app_index][db_index][i] == "chore_type")
+                {
+                    new_entry[i] = chore_type;
+                }
+                if (column_names[app_index][db_index][i] == "chore_desc")
+                {
+                    new_entry[i] = chore_desc;
+                }
+                if (default_values[app_index][db_index][i] != "null")
+                {
+                    new_entry[i] = default_values[app_index][db_index][i];
+                }
+            }
+            databases[app_index][db_index].Add(new_entry);
+
+
+            return success_adding;
+        }
+        //___________________________________
+
+
+
+
         static int GetParameterIndex(string[][] parameters, string parameter_name)
         {
             for(int i = 0; i < parameters.Length; i++)
