@@ -6,3 +6,10 @@ C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_A
 C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CoreCompileInputs.cache
 C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
 C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe.config
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.pdb
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csprojAssemblyReference.cache
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CoreCompileInputs.cache
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
+L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb

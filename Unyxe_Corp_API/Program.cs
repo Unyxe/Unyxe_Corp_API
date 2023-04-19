@@ -17,9 +17,6 @@ namespace LoginSystem_server
     internal class Program
     {
         static Socket socket;
-        static IPAddress ip_addr;
-        static IPEndPoint endPoint;
-        static public string ips;
 
 
         static IPAddress ip2;
@@ -27,11 +24,10 @@ namespace LoginSystem_server
         static Thread listenThread;
 
 
-        static int opp_dec;
         static public string last_msg = "";
         static Random rand = new Random();
 
-        static string home_dir = @"D:\UnyxeCorpAPI\";
+        static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
 
         static string databases_dir = home_dir + @"Databases\";
 
@@ -55,7 +51,17 @@ namespace LoginSystem_server
             {
                 new string[] { "username", "password", "role"},
                 new string[] { "username", "auth_token"},
-                new string[] { "username_sender", "usewrname_reciever", "chore_type", "chore_desc", "done_it"},
+                new string[] { "username_sender", "username_reciever", "chore_type", "chore_desc", "done_it"},
+            }
+        };
+        static string[][][] default_values =
+        {
+            //APP: chores
+            new string[][]
+            {
+                new string[] { "null", "null", "User"},
+                new string[] { "null", "null"},
+                new string[] { "null", "null", "null", "-", "false"},
             }
         };
         static string[][] available_methods =
@@ -78,9 +84,18 @@ namespace LoginSystem_server
 
         public static void Main()
         {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\t\tUnyxe Corporation API\n\n");
+            Console.WriteLine("Database initialization...");
             InitRAMDatabases();
+            Console.WriteLine("Done!\n");
+            Console.WriteLine("Database reading...");
             ReadDataFromDatabase();
+            Console.WriteLine("Done!\n");
+            Console.WriteLine("Database structure displayment...");
             DisplayRAMDatabaseStructure();
+            Console.WriteLine("Done\n");
+            Console.WriteLine("Listening started!\n\n");
             Console.WriteLine(GetLocalIPAddress());
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             Listen1();
@@ -154,10 +169,18 @@ namespace LoginSystem_server
 
                     try
                     {
+                        Socket endp = clientSocket;
+
 
                         string[] app_parse = ParseForApp(message);
                         message = app_parse[1];
                         string app = app_parse[0];
+                        if (!apps.Contains(app))
+                        {
+                            string method_success = "app_is_not_found";
+                            Send("Failed! Reason: " + method_success, endp);
+                            continue;
+                        }
                         string[] args = ParseMessage(message, app);
 
                         string ipad = "";
@@ -171,7 +194,6 @@ namespace LoginSystem_server
                             ipad += endp_str[i];
                         }
                         IPAddress ipaddr = IPAddress.Parse(ipad);
-                        Socket endp = clientSocket;
                         try
                         {
                             if (args[1] == "success")
@@ -200,13 +222,13 @@ namespace LoginSystem_server
                                 }
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             Send("Failed! Server error occured!", endp);
                         }
                         WriteDataToDatabase();
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         Console.WriteLine("Error occured, while trying to parse the message");
                     }
@@ -303,8 +325,8 @@ namespace LoginSystem_server
             }
 
 
-
-            //Main DoMethod Part
+            //_________________________________________
+            //Shared methods part
             switch (method)
             {
                 case "sign":
@@ -350,8 +372,6 @@ namespace LoginSystem_server
 
                         password = arg_values[index_found];
 
-
-
                         index_found = -1;
                         for (int i = 0; i < arg_names.Count; i++)
                         {
@@ -366,15 +386,15 @@ namespace LoginSystem_server
                             auth_token = arg_values[index_found];
                         }
 
-                        if (!apps.Contains(app))
-                        {
-                            method_success = "app_is_not_found";
-                            return method_success;
-                        }
+                        
 
                         if (CheckPermission(auth_token, method, app))
                         {
-                            method_success = SignIn(username, password, app);
+                            method_success = SignIn(new string[][]
+                            { 
+                                new string[] {"username", username }, 
+                                new string[] {"password", password } 
+                            }, app);
                         }
                         else
                         {
@@ -407,8 +427,6 @@ namespace LoginSystem_server
                         }
                         username = arg_values[index_found];
 
-
-
                         index_found = -1;
                         for (int i = 0; i < arg_names.Count; i++)
                         {
@@ -425,8 +443,6 @@ namespace LoginSystem_server
                         }
                         password = arg_values[index_found];
 
-
-
                         index_found = -1;
                         for (int i = 0; i < arg_names.Count; i++)
                         {
@@ -442,16 +458,13 @@ namespace LoginSystem_server
                         }
 
 
-
-                        if (!apps.Contains(app))
-                        {
-                            method_success = "app_is_not_found";
-                            return method_success;
-                        }
-
                         if (CheckPermission(auth_token, method, app))
                         {
-                            method_success = LogIn(username, password, app);
+                            method_success = LogIn(new string[][]
+                            {
+                                new string[] {"username", username },
+                                new string[] {"password", password }
+                            }, app);
                             if (method_success == "success")
                             {
                                 Send("Auth token: " + GetUserAuthToken(username, app), user_endp);
@@ -466,6 +479,12 @@ namespace LoginSystem_server
                     }
 
             }
+            //_______________________________________________
+
+            int app_index = GetAppIndex(app);
+
+
+
             return method_success;
         }
 
@@ -568,11 +587,15 @@ namespace LoginSystem_server
         }
 
 
-        static string LogIn(string username, string password, string app)
+        static string LogIn(string[][] parameters, string app)
         {
             string success_login = "success";
             int app_index = GetAppIndex(app);
             int db_index = GetDatabaseIndex(app, "users");
+            int username_index = GetParameterIndex(parameters, "username");
+            int password_index = GetParameterIndex(parameters, "password");
+            string username = parameters[username_index][1];
+            string password = parameters[password_index][1];
             if (!CheckUserPresence(username, app))
             {
                 success_login = "username_not_found";
@@ -586,18 +609,49 @@ namespace LoginSystem_server
 
             return success_login;
         }
-        static string SignIn(string username, string password, string app)
+        static string SignIn(string[][] parameters, string app)
         {
             string success_signin = "success";
             int app_index = GetAppIndex(app);
             int db_index = GetDatabaseIndex(app, "users");
+            int username_index = GetParameterIndex(parameters, "username");
+            int password_index = GetParameterIndex(parameters, "password");
+            string username = parameters[username_index][1];
+            string password = parameters[password_index][1];
             if (CheckUserPresence(username, app))
             {
                 success_signin = "username_already_present";
                 return success_signin;
             }
-            databases[app_index][db_index].Add(new string[] { username, password, "User", "false" });
+            string[] new_entry = new string[default_values.Length];
+            for(int i = 0; i < new_entry.Length; i++)
+            {
+                if(column_names[app_index][db_index][i] == "username")
+                {
+                    new_entry[i] = username;
+                }
+                if (column_names[app_index][db_index][i] == "password")
+                {
+                    new_entry[i] = password;
+                }
+                if (default_values[app_index][db_index][i] != "null")
+                {
+                    new_entry[i] = default_values[app_index][db_index][i];
+                }
+            }
+            databases[app_index][db_index].Add(new string[] { username, password, default_values[app_index][db_index][2]});
             return success_signin;
+        }
+        static int GetParameterIndex(string[][] parameters, string parameter_name)
+        {
+            for(int i = 0; i < parameters.Length; i++)
+            {
+                if(parameters[i][0] == parameter_name)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
         static int GetDatabaseIndex(string app_name, string database_name)
         {
