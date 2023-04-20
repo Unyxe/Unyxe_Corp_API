@@ -89,8 +89,16 @@ namespace LoginSystem_server
             //root
             new string[][]
             {
-                new string[] { "null", "null", "Admin"},
-                new string[] { "null", "null"},
+                new string[] { "null", "null", "Admin" },
+                new string[] { "null", "null" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
+                new string[] { "" },
             },
             //APP: chores
             new string[][]
@@ -115,13 +123,10 @@ namespace LoginSystem_server
 
 
 
-
-
-
-
-
         public static void Main()
         {
+
+
             WriteRootDatabase();
             //Console.ReadLine();
 
@@ -145,6 +150,7 @@ namespace LoginSystem_server
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             Listen1();
         }
+
 
 
         private static void Send(string str, Socket clientSocket)
@@ -281,10 +287,11 @@ namespace LoginSystem_server
                         
                         if(app == "root")
                         {
-                            Console.WriteLine("Writing root db...");
+                            //Console.WriteLine("Writing root db...");
                             WriteRootDatabase();
                         }
-                        //ReadDataFromDatabase();
+                        WriteDataToDatabase();
+                        ReadDataFromDatabase();
                         WriteDataToDatabase();
                     }
                     catch (Exception) when (robust_enable)
@@ -637,6 +644,56 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "delete_app":
+                        {
+                            string app_name;
+                            string auth_token = "";
+
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = DeleteApp(app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
                 }
             }
             
@@ -746,7 +803,45 @@ namespace LoginSystem_server
 
         //___________________________________
         //Functions used by apps
-                         //root
+
+                        //root
+
+        static string CreateDatabase(string[][] parameters, string app)
+        {
+            string success_ = "success";
+            int app_index = GetAppIndex(app);
+            string database_name = parameters[GetParameterIndex(parameters, "db_name")][1];
+            string database_path = parameters[GetParameterIndex(parameters, "db_path")][1];
+
+            //Database names array append
+            {
+                int l = database_names[app_index].Length;
+                string[] database_names_new = new string[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    database_names_new[i] = database_names[app_index][i];
+                }
+
+                database_names_new[l] = database_name;
+                database_names[app_index] = database_names_new;
+            }
+
+            //Database paths array append
+            {
+                int l = database_paths[app_index].Length;
+                string[] database_paths_new = new string[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    database_paths_new[i] = database_paths[app_index][i];
+                }
+
+                database_paths_new[l] = database_path;
+                database_paths[app_index] = database_paths_new;
+            }
+
+            return success_;
+        }
+
         static string CreateApp(string[][] parameters)
         {
             string success_ = "success";
@@ -792,6 +887,8 @@ namespace LoginSystem_server
                 Directory.CreateDirectory(databases_dir + new_app_name);
                 foreach(string p in database_paths_new[l])
                 {
+                    //FileStream fs = new FileStream(databases_dir + p, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+                    //fs.Close();
                     File.Create(databases_dir + p).Close();
                 }
                 database_paths = database_paths_new;
@@ -869,19 +966,217 @@ namespace LoginSystem_server
                 methods_acls_new[l] = new string[] { "0:2", "0:2" };
                 method_permissions = methods_acls_new;
             }
-            /*
-            ReadDataFromDatabase();
+            //RAM Databases array append
+            {
+                int l = databases.Length;
+                List<string[]>[][] databases_new = new List<string[]>[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    databases_new[i] = databases[i];
+                }
+
+                databases_new[l] = new List<string[]>[]
+                {
+                    new List<string[]>(),
+                    new List<string[]>(),
+                };
+                databases = databases_new;
+            }
+            
             SignIn(new string[][] 
             {
                 new string[] {"username", "admin"},
                 new string[] {"password", "admin"},
                 new string[] {"role", "Admin"},
             }, new_app_name);
-            */
+            
             return success_;
         }
 
-                         //Shared
+        static string DeleteApp(string app)
+        {
+            string success_ = "success";
+
+            int app_index = GetAppIndex(app);
+
+            //App array append
+            {
+                string[] new_app_arr = new string[apps.Length - 1];
+                int d = 0;
+                for (int i = 0; i < apps.Length-1; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    new_app_arr[i] = apps[d];
+                    
+                    d++;
+                }
+                apps = new_app_arr;
+            }
+
+            //Database names array append
+            {
+                int l = database_names.Length - 1;
+                string[][] database_names_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    database_names_new[i] = database_names[d];
+                    d++;
+                }
+                database_names = database_names_new;
+            }
+
+            //Database paths array append
+            {
+                int l = database_paths.Length - 1;
+                string[][] database_paths_new = new string[l][];
+
+                DirectoryInfo di = new DirectoryInfo(databases_dir + app);
+
+                foreach (FileInfo file in di.GetFiles())
+                {
+                    file.Delete();
+                }
+
+                while (true)
+                {
+                    try
+                    {
+                        Directory.Delete(databases_dir + app);
+                        break;
+                    }
+                    catch { }
+                }
+
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    database_paths_new[i] = database_paths[d];
+                    d++;
+                }
+                
+                database_paths = database_paths_new;
+            }
+
+            //Roles array append
+            {
+                int l = roles.Length - 1;
+                string[][] roles_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    roles_new[i] = roles[d];
+                    d++;
+                }
+
+                roles = roles_new;
+            }
+
+            //Column names array append
+            {
+                int l = column_names.Length - 1;
+                string[][][] column_names_new = new string[l][][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    column_names_new[i] = column_names[d];
+                    d++;
+                }
+                column_names = column_names_new;
+            }
+
+            //Def vals array append
+            {
+                int l = default_values.Length - 1;
+                string[][][] def_vals_new = new string[l][][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    def_vals_new[i] = default_values[d];
+                    d++;
+                }
+                default_values = def_vals_new;
+            }
+
+            //Methods append
+            {
+                int l = available_methods.Length - 1;
+                string[][] methods_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    methods_new[i] = available_methods[d];
+                    d++;
+                }
+
+                available_methods = methods_new;
+            }
+
+            //Method ACLs append
+            {
+                int l = method_permissions.Length - 1;
+                string[][] methods_acls_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    methods_acls_new[i] = method_permissions[d];
+                    d++;
+                }
+                method_permissions = methods_acls_new;
+            }
+            //RAM Databases array append
+            {
+                int l = databases.Length - 1;
+                List<string[]>[][] databases_new = new List<string[]>[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    databases_new[i] = databases[d];
+                    d++;
+                }
+
+                databases = databases_new;
+            }
+
+            return success_;
+        }
+
+        //Shared
 
         static string LogIn(string[][] parameters, string app)
         {
@@ -1383,6 +1678,7 @@ namespace LoginSystem_server
                         string[] param = line.Split('~');
                         databases[inc_app][inc_db].Add(param);
                     }
+                    reader.Close();
                     inc_db++;
                 }
                 inc_app++;
@@ -1794,7 +2090,7 @@ namespace LoginSystem_server
                         }
                         break;
                 }
-                Console.WriteLine("Saving " + database_names[root_app_index][i]);
+                //Console.WriteLine("Saving " + database_names[root_app_index][i]);
                 writer.Close();
             }
         }
@@ -1808,7 +2104,7 @@ namespace LoginSystem_server
             }
         }
 
-
+        
 
 
 
