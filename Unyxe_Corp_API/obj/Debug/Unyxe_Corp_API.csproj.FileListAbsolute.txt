@@ -14,3 +14,10 @@ L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
 L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb
 L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.AssemblyReference.cache
 L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.SuggestedBindingRedirects.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe.config
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.pdb
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csprojAssemblyReference.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CoreCompileInputs.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb

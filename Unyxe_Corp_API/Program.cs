@@ -5,12 +5,9 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.IO;
-using System.Drawing;
-using System.Security.Permissions;
-using static System.Net.Mime.MediaTypeNames;
+using System.Runtime.InteropServices;
 
 namespace LoginSystem_server
 {
@@ -25,6 +22,10 @@ namespace LoginSystem_server
 
 
         static public string last_msg = "";
+
+        static bool http_display_mode = false;
+        static bool robust_enable = false;
+
         static Random rand = new Random();
 
         static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
@@ -101,16 +102,16 @@ namespace LoginSystem_server
         };
         static string[][] available_methods =
         {
-            new string[] { "sign", "log", "new_app", "delete_app", "new_database", "delete_database"},
+            new string[] { "sign", "log", "list_ram_dbs","new_app", "delete_app", "new_database", "delete_database"},
             new string[] { "sign", "log", "new_chore"},
         };
         static string[][] method_permissions =
         {
-            new string[]{ "0", "0:2", "0", "0", "0", "0"},
+            new string[]{ "0", "0:2", "0", "0", "0", "0", "0"},
             new string[]{ "0:2", "0:2", "0:1"  },
         };
 
-        static List<string[]>[][] databases = new List<string[]>[apps.Length][];
+        static List<string[]>[][] databases;
 
 
 
@@ -121,9 +122,12 @@ namespace LoginSystem_server
 
         public static void Main()
         {
-            ReadRootDatabase();
             WriteRootDatabase();
-            Console.ReadLine();
+            //Console.ReadLine();
+
+            ReadRootDatabase();
+            //WriteRootDatabase();
+            //Console.ReadLine();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\t\tUnyxe Corporation API\n\n");
             Console.WriteLine("Database initialization...");
@@ -152,13 +156,18 @@ namespace LoginSystem_server
                 byte[] buffer = Encoding.ASCII.GetBytes(string_http);
                 clientSocket.Send(buffer);
                 clientSocket.Close();
-                Console.WriteLine("[=>]" + string_http);
+                if (http_display_mode)
+                {
+                    Console.WriteLine("[=>]" + string_http);
+                }
+                Console.WriteLine("|"+str + "|\n\n\n");
             }
-            catch (Exception ex)
+            catch (Exception ex) 
             {
                 Console.WriteLine("Sending error: " + ex.Message);
                 Console.WriteLine("IP is offline");
             }
+            
         }
 
         private static void Listen1()
@@ -182,7 +191,10 @@ namespace LoginSystem_server
                     int bytesReceived = clientSocket.Receive(buffer);
                     string message = Encoding.ASCII.GetString(buffer, 0, bytesReceived);
                     last_msg = message;
-                    Console.WriteLine("[" + clientSocket.RemoteEndPoint.ToString() + "]" + message);
+                    if (http_display_mode)
+                    {
+                        Console.WriteLine("[" + clientSocket.RemoteEndPoint.ToString() + "]" + message);
+                    }
                     //Send("Hello", clientSocket);
                     string m = "";
                     bool write_ = false;
@@ -206,7 +218,7 @@ namespace LoginSystem_server
                         message = FromBase64(m.Substring(1, m.Length - 1));
                     }
                     catch { continue; }
-                    Console.WriteLine("|" + message + "|");
+                    Console.WriteLine("|" + message + "|\n");
 
                     try
                     {
@@ -255,7 +267,6 @@ namespace LoginSystem_server
                                         Send("Success!", endp);
                                     }
 
-                                    //Console.WriteLine(auth_tokens.Count);
                                 }
                                 else
                                 {
@@ -263,17 +274,20 @@ namespace LoginSystem_server
                                 }
                             }
                         }
-                        catch (Exception)
+                        catch (Exception) when (robust_enable)
                         {
                             Send("Failed! Server error occured!", endp);
                         }
+                        
                         if(app == "root")
                         {
+                            Console.WriteLine("Writing root db...");
                             WriteRootDatabase();
                         }
+                        //ReadDataFromDatabase();
                         WriteDataToDatabase();
                     }
-                    catch (Exception)
+                    catch (Exception) when (robust_enable)
                     {
                         Console.WriteLine("Error occured, while trying to parse the message");
                     }
@@ -282,7 +296,7 @@ namespace LoginSystem_server
 
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (robust_enable)
             {
                 Console.WriteLine("Listening error: " + ex.Message);
                 Main();
@@ -291,6 +305,7 @@ namespace LoginSystem_server
         }
         public static string DoMethod(string method, string app, string arguments_raw, Socket user_endp)
         {
+
             List<string> arg_names = new List<string>();
             List<string> arg_values = new List<string>();
 
@@ -369,6 +384,12 @@ namespace LoginSystem_server
                 return method_success;
             }
 
+            int app_index = GetAppIndex(app);
+            if (!available_methods[app_index].Contains(method))
+            {
+                method_success = "method_is_not_found";
+                return method_success;
+            }
 
             //_________________________________________
             //Shared methods part
@@ -522,22 +543,108 @@ namespace LoginSystem_server
 
                         return method_success;
                     }
-
             }
             //_______________________________________________
 
-            int app_index = GetAppIndex(app);
+            
 
-            //Root database refresh
-            //_______________________________________________
+            //Root app's methods
+            if (app == "root")
+            {
+                switch (method)
+                {
+                    case "list_ram_dbs":
+                        {
+                            string auth_token = "";
 
-            //_______________________________________________
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
 
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                Console.WriteLine("\n\n\n______________________________________");
+                                DisplayRAMDatabaseStructure();
+                                Console.WriteLine("______________________________________\n\n\n");
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "new_app":
+                        {
+                            string app_name;
+                            string auth_token = "";
+
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = CreateApp(new string[][]
+                                {
+                                new string[] {"app_name", app_name },
+                                });
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                }
+            }
+            
+            
 
 
             return method_success;
         }
-
 
         public static string[] ParseForApp(string msg)
         {
@@ -617,7 +724,7 @@ namespace LoginSystem_server
             }
             else if (!available_methods[app_ind].Contains(method))
             {
-                success_parse = "method_not_available";
+                //success_parse = "method_not_available";
             }
 
             if (success_parse == "success")
@@ -639,6 +746,142 @@ namespace LoginSystem_server
 
         //___________________________________
         //Functions used by apps
+                         //root
+        static string CreateApp(string[][] parameters)
+        {
+            string success_ = "success";
+
+            string new_app_name = parameters[GetParameterIndex(parameters, "app_name")][1];
+
+            //App array append
+            {
+                string[] new_app_arr = new string[apps.Length + 1];
+                for (int i = 0; i < apps.Length; i++)
+                {
+                    new_app_arr[i] = apps[i];
+                }
+
+                new_app_arr[apps.Length] = new_app_name;
+                apps = new_app_arr;
+            }
+
+            //Database names array append
+            {
+                int l = database_names.Length;
+                string[][] database_names_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    database_names_new[i] = database_names[i];
+                }
+
+                database_names_new[l] = new string[]{"users", "auth_tokens" };
+                database_names = database_names_new;
+            }
+
+            //Database paths array append
+            {
+                int l = database_paths.Length;
+                string[][] database_paths_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    database_paths_new[i] = database_paths[i];
+                }
+
+                database_paths_new[l] = new string[] { new_app_name+@"\us.db", new_app_name+@"\au.db" };
+
+                Directory.CreateDirectory(databases_dir + new_app_name);
+                foreach(string p in database_paths_new[l])
+                {
+                    File.Create(databases_dir + p).Close();
+                }
+                database_paths = database_paths_new;
+            }
+
+            //Roles array append
+            {
+                int l = roles.Length;
+                string[][] roles_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    roles_new[i] = roles[i];
+                }
+
+                roles_new[l] = new string[] { "Admin", "User", "Anonymous" };
+                roles = roles_new;
+            }
+
+            //Column names array append
+            {
+                int l = column_names.Length;
+                string[][][] column_names_new = new string[l + 1][][];
+                for (int i = 0; i < l; i++)
+                {
+                    column_names_new[i] = column_names[i];
+                }
+
+                column_names_new[l] = new string[][]
+                {
+                    new string[] { "username", "password", "role"},
+                    new string[] { "username", "auth_token"}
+                };
+                column_names = column_names_new;
+            }
+
+            //Def vals array append
+            {
+                int l = default_values.Length;
+                string[][][] def_vals_new = new string[l + 1][][];
+                for (int i = 0; i < l; i++)
+                {
+                    def_vals_new[i] = default_values[i];
+                }
+
+                def_vals_new[l] = new string[][]
+                {
+                    new string[] { "null", "null", "User"},
+                    new string[] { "null", "null"},
+                };
+                default_values = def_vals_new;
+            }
+
+            //Methods append
+            {
+                int l = available_methods.Length;
+                string[][] methods_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    methods_new[i] = available_methods[i];
+                }
+
+                methods_new[l] = new string[] { "sign", "log" };
+                available_methods = methods_new;
+            }
+
+            //Method ACLs append
+            {
+                int l = method_permissions.Length;
+                string[][] methods_acls_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    methods_acls_new[i] = method_permissions[i];
+                }
+
+                methods_acls_new[l] = new string[] { "0:2", "0:2" };
+                method_permissions = methods_acls_new;
+            }
+            /*
+            ReadDataFromDatabase();
+            SignIn(new string[][] 
+            {
+                new string[] {"username", "admin"},
+                new string[] {"password", "admin"},
+                new string[] {"role", "Admin"},
+            }, new_app_name);
+            */
+            return success_;
+        }
+
+                         //Shared
 
         static string LogIn(string[][] parameters, string app)
         {
@@ -669,8 +912,10 @@ namespace LoginSystem_server
             int db_index = GetDatabaseIndex(app, "users");
             int username_index = GetParameterIndex(parameters, "username");
             int password_index = GetParameterIndex(parameters, "password");
+            int role_index = GetParameterIndex(parameters, "role");
             string username = parameters[username_index][1];
             string password = parameters[password_index][1];
+            string role = role_index != -1 ? parameters[role_index][1] : "null";
             if (CheckUserPresence(username, app))
             {
                 success_signin = "username_already_present";
@@ -691,11 +936,17 @@ namespace LoginSystem_server
                 {
                     new_entry[i] = default_values[app_index][db_index][i];
                 }
+
+
+                if(column_names[app_index][db_index][i] == "role" && role != "null")
+                {
+                    new_entry[i] = role;
+                }
             }
             databases[app_index][db_index].Add(new_entry);
             return success_signin;
         }
-
+                     //Chores
         static string AddChore(string[][] parameters, string app)
         {
             string success_adding = "success";
@@ -960,7 +1211,7 @@ namespace LoginSystem_server
         
         static void ClearRAMDatabases()
         {
-            for (int i = 0; i < apps.Length; i++)
+            for (int i = 0; i < database_names.Length; i++)
             {
                 for (int j = 0; j < database_names[i].Length; j++)
                 {
@@ -970,7 +1221,8 @@ namespace LoginSystem_server
         }
         static void InitRAMDatabases()
         {
-            for (int i = 0; i < apps.Length; i++)
+            databases = new List<string[]>[database_names.Length][];
+            for (int i = 0; i < database_names.Length; i++)
             {
                 databases[i] = new List<string[]>[database_names[i].Length];
                 for (int j = 0; j < database_names[i].Length; j++)
@@ -1019,7 +1271,7 @@ namespace LoginSystem_server
         }
         static void DisplayRAMDatabaseStructure()
         {
-            for (int i = 0; i < apps.Length; i++)
+            for (int i = 0; i < database_names.Length; i++)
             {
                 Console.WriteLine("-" + apps[i]);
                 for (int j = 0; j < database_names[i].Length; j++)
@@ -1053,13 +1305,20 @@ namespace LoginSystem_server
         }
         static void ClearDatabases()
         {
+            int inc_app = 0;
             foreach (string[] app_dbs in database_paths)
             {
+                if (inc_app == GetAppIndex("root"))
+                {
+                    inc_app++;
+                    continue;
+                }
                 foreach (string db_path in app_dbs)
                 {
                     FileStream fs = new FileStream(databases_dir + db_path, FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite);
                     fs.Close();
                 }
+                inc_app++;
             }
         }
         static void WriteDataToDatabase()
@@ -1069,6 +1328,11 @@ namespace LoginSystem_server
 
             foreach (string[] app_dbs in database_paths)
             {
+                if(inc_app == GetAppIndex("root"))
+                {
+                    inc_app++;
+                    continue;
+                }
                 int inc_db = 0;
                 foreach (string db_path in app_dbs)
                 {
@@ -1096,7 +1360,9 @@ namespace LoginSystem_server
         }
         static void ReadDataFromDatabase()
         {
+            InitRAMDatabases();
             ClearRAMDatabases();
+            
 
             int inc_app = 0;
             
@@ -1379,6 +1645,7 @@ namespace LoginSystem_server
                         break;
                     case "apps":
                         {
+                            
                             string entry = "";
                             for(int j = 0; j< apps.Length; j++)
                             {
@@ -1527,6 +1794,7 @@ namespace LoginSystem_server
                         }
                         break;
                 }
+                Console.WriteLine("Saving " + database_names[root_app_index][i]);
                 writer.Close();
             }
         }
@@ -1539,6 +1807,11 @@ namespace LoginSystem_server
                 fs.Close();
             }
         }
+
+
+
+
+
         public static string CreateMD5(string input)
         {
             StringBuilder hash = new StringBuilder();
