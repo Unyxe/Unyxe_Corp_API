@@ -110,7 +110,7 @@ namespace LoginSystem_server
         };
         static string[][] available_methods =
         {
-            new string[] { "sign", "log", "list_ram_dbs","new_app", "delete_app", "new_database", "delete_database"},
+            new string[] { "sign", "log", "list_ram_dbs","new_app", "delete_app", "new_db", "delete_db"},
             new string[] { "sign", "log", "new_chore"},
         };
         static string[][] method_permissions =
@@ -694,6 +694,93 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "new_db":
+                        {
+                            string auth_token = "";
+                            string app_name;
+                            string db_name;
+                            string db_path;
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "db_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "db_name_not_provided";
+                                return method_success;
+                            }
+                            db_name = arg_values[index_found];
+
+                             index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "db_path")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "db_path_not_provided";
+                                return method_success;
+                            }
+                            db_path = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = CreateDatabase(new string[][]
+                                {
+                                    new string[] {"db_name", db_name},
+                                    new string[] {"db_path", db_path},
+                                }, app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
                 }
             }
             
@@ -748,7 +835,7 @@ namespace LoginSystem_server
             //Parsing normal
             for (int i = 0; i < message.Length; i++)
             {
-                if (message[i] == '\\')
+                if (message[i] == '\\' && (method == "" || is_method_section))
                 {
                     is_method_section = !is_method_section;
                     is_port_section = false;
@@ -813,6 +900,8 @@ namespace LoginSystem_server
             string database_name = parameters[GetParameterIndex(parameters, "db_name")][1];
             string database_path = parameters[GetParameterIndex(parameters, "db_path")][1];
 
+            CreateFile(databases_dir + database_path);
+
             //Database names array append
             {
                 int l = database_names[app_index].Length;
@@ -839,6 +928,44 @@ namespace LoginSystem_server
                 database_paths[app_index] = database_paths_new;
             }
 
+            //Column names array append
+            {
+                int l = column_names[app_index].Length;
+                string[][] column_names_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    column_names_new[i] = column_names[app_index][i];
+                }
+
+                column_names_new[l] = new string[] { "null" };
+                column_names[app_index] = column_names_new;
+            }
+
+            //Default values array append
+            {
+                int l = default_values[app_index].Length;
+                string[][] def_vals_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    def_vals_new[i] = default_values[app_index][i];
+                }
+
+                def_vals_new[l] = new string[] { "null" };
+                default_values[app_index] = def_vals_new;
+            }
+
+            //RAM Databases array append
+            {
+                int l = databases[app_index].Length;
+                List<string[]>[] databases_new = new List<string[]>[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    databases_new[i] = databases[app_index][i];
+                }
+
+                databases_new[l] = new List<string[]>();
+                databases[app_index] = databases_new;
+            }
             return success_;
         }
 
@@ -884,12 +1011,13 @@ namespace LoginSystem_server
 
                 database_paths_new[l] = new string[] { new_app_name+@"\us.db", new_app_name+@"\au.db" };
 
-                Directory.CreateDirectory(databases_dir + new_app_name);
+                //Directory.CreateDirectory(databases_dir + new_app_name);
                 foreach(string p in database_paths_new[l])
                 {
                     //FileStream fs = new FileStream(databases_dir + p, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
                     //fs.Close();
-                    File.Create(databases_dir + p).Close();
+                    //File.Create(databases_dir + p).Close();
+                    CreateFile(databases_dir + p);
                 }
                 database_paths = database_paths_new;
             }
@@ -966,6 +1094,7 @@ namespace LoginSystem_server
                 methods_acls_new[l] = new string[] { "0:2", "0:2" };
                 method_permissions = methods_acls_new;
             }
+
             //RAM Databases array append
             {
                 int l = databases.Length;
@@ -2107,7 +2236,11 @@ namespace LoginSystem_server
         
 
 
-
+        public static void CreateFile(string path)
+        {
+            new FileInfo(path).Directory.Create();
+            File.Create(path).Close();
+        }
         public static string CreateMD5(string input)
         {
             StringBuilder hash = new StringBuilder();
