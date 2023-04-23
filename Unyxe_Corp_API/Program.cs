@@ -8,6 +8,8 @@ using System.Threading;
 using System.Security.Cryptography;
 using System.IO;
 using System.Runtime.InteropServices;
+using static System.Net.Mime.MediaTypeNames;
+using System.Diagnostics;
 
 namespace LoginSystem_server
 {
@@ -125,7 +127,7 @@ namespace LoginSystem_server
 
         public static void Main()
         {
-
+            
 
             WriteRootDatabase();
             //Console.ReadLine();
@@ -2235,7 +2237,14 @@ namespace LoginSystem_server
 
         
 
-
+        public static void CompileFile(string sourcepath, string exepath)
+        {
+            Process proc = new Process();
+            proc.StartInfo.FileName = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe";
+            proc.StartInfo.UseShellExecute = false;
+            proc.StartInfo.RedirectStandardInput = true;
+            proc.Start();
+        }
         public static void CreateFile(string path)
         {
             new FileInfo(path).Directory.Create();
