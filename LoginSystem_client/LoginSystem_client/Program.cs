@@ -41,6 +41,9 @@ namespace LoginSystem_server
             //Console.ReadLine();
             string s = "";
 
+
+            Send("<root>\\bind_code\\?auth-c90010128ac4159bd196b5bb5d1a99dc&app_name-TestApp&method-TestMethod&src-dXNpbmcgU3lzdGVtOwp1c2luZyBTeXN0ZW0uQ29sbGVjdGlvbnMuR2VuZXJpYzsKdXNpbmcgU3lzdGVtLkxpbnE7CnVzaW5nIFN5c3RlbS5UZXh0Owp1c2luZyBTeXN0ZW0uVGhyZWFkaW5nLlRhc2tzOwoKbmFtZXNwYWNlIEhlbGxvV29ybGRBcHAKewogICAgaW50ZXJuYWwgY2xhc3MgUHJvZ3JhbQogICAgewogICAgICAgIHN0YXRpYyB2b2lkIE1haW4oc3RyaW5nW10gYXJncykKICAgICAgICB7CiAgICAgICAgICAgIENvbnNvbGUuV3JpdGVMaW5lKCJIZWxsbyBXb3JsZCIpOwogICAgICAgICAgICBDb25zb2xlLlJlYWRMaW5lKCk7CiAgICAgICAgfQogICAgfQp9Cg==" + "~" + listening_port);
+
             while (true)
             {
                 try

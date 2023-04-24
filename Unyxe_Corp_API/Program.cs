@@ -33,6 +33,8 @@ namespace LoginSystem_server
         static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
 
         static string databases_dir = home_dir + @"Databases\";
+        static string binded_functions_dir = home_dir + @"BindedFunctions\";
+        static string binded_functions_src_dir = home_dir + @"BindedFunctionsSrc\";
 
         static string[][] root_users =
         {
@@ -112,12 +114,12 @@ namespace LoginSystem_server
         };
         static string[][] available_methods =
         {
-            new string[] { "sign", "log", "list_ram_dbs","new_app", "delete_app", "new_db", "delete_db"},
+            new string[] { "sign", "log", "bind_code","list_ram_dbs","new_app", "delete_app", "new_db", "delete_db"},
             new string[] { "sign", "log", "new_chore"},
         };
         static string[][] method_permissions =
         {
-            new string[]{ "0", "0:2", "0", "0", "0", "0", "0"},
+            new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0"},
             new string[]{ "0:2", "0:2", "0:1"  },
         };
 
@@ -783,6 +785,94 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "bind_code":
+                        {
+                            string auth_token = "";
+                            string app_name;
+                            string method_name;
+                            string src_base64;
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "method")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "method_name_not_provided";
+                                return method_success;
+                            }
+                            method_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "src")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "src_not_provided";
+                                return method_success;
+                            }
+                            src_base64 = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = BindAppToFunc(new string[][]
+                                {
+                                    new string[] {"app_name", app_name },
+                                    new string[] {"method", method_name },
+                                    new string[] {"src", src_base64},
+                                }, app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
                 }
             }
             
@@ -895,6 +985,28 @@ namespace LoginSystem_server
 
                         //root
 
+        static string BindAppToFunc(string[][] parameters, string app)
+        {
+            string success_ = "success";
+            int app_index = GetAppIndex(app);
+            string app_name = parameters[GetParameterIndex(parameters, "app_name")][1];
+            string method = parameters[GetParameterIndex(parameters, "method")][1];
+            string source_code_base64 = parameters[GetParameterIndex(parameters, "src")][1];
+
+            string exe_path = binded_functions_dir + app_name +"_"+method + "_function.exe";
+            string src_path = binded_functions_src_dir + app_name + "_" + method + "_function_src.cs";
+            CreateFile(exe_path);
+            CreateFile(src_path);
+            try
+            {
+                WriteToFile(src_path, FromBase64(source_code_base64));
+            } catch when (robust_enable)
+            {
+                return "not_a_valid_base64_string";
+            }
+            CompileFile(src_path, exe_path);
+            return success_;
+        }
         static string CreateDatabase(string[][] parameters, string app)
         {
             string success_ = "success";
@@ -2241,14 +2353,23 @@ namespace LoginSystem_server
         {
             Process proc = new Process();
             proc.StartInfo.FileName = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe";
+            proc.StartInfo.Arguments = "/t:exe /out:"+exepath+" "+sourcepath;
             proc.StartInfo.UseShellExecute = false;
-            proc.StartInfo.RedirectStandardInput = true;
+            proc.StartInfo.CreateNoWindow = true;
             proc.Start();
         }
         public static void CreateFile(string path)
         {
             new FileInfo(path).Directory.Create();
             File.Create(path).Close();
+        }
+        public static void WriteToFile(string path, string content)
+        {
+            File.WriteAllText(path, content);
+        }
+        public static void WriteToFile(string path, byte[] content)
+        {
+            File.WriteAllBytes(path, content);
         }
         public static string CreateMD5(string input)
         {

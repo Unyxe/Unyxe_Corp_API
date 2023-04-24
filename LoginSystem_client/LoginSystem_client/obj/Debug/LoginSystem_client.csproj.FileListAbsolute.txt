@@ -37,3 +37,11 @@ L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSyste
 L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
 L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
 L:\Visual Studio 2019\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.AssemblyReference.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.SuggestedBindingRedirects.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
