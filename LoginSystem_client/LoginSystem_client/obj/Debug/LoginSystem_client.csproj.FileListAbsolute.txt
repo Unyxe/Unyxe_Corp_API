@@ -45,3 +45,10 @@ C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client
 C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
 C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
 C:\Users\lucky\source\repos\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe.config
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\bin\Debug\LoginSystem_client.pdb
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csprojAssemblyReference.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.csproj.CoreCompileInputs.cache
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.exe
+\\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\LoginSystem_client\LoginSystem_client\obj\Debug\LoginSystem_client.pdb

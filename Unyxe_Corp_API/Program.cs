@@ -51,12 +51,12 @@ namespace LoginSystem_server
         static string[] apps = { "root", "chores" };
         static string[][] database_names =
         {
-            new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods", "method_acls", "column_names", "default_values"},
+            new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods","method_bindings", "method_acls", "column_names", "default_values"},
             new string[] {"users", "auth_tokens", "chores"},
         };
         static string[][] database_paths =
         {
-            new string[] {@"root\us.db", @"root\au.db", @"root\apps.db", @"root\dbnames.db",@"root\dbpaths.db",@"root\roles.db",@"root\methods.db",@"root\method_acls.db",@"root\column_names.db",@"root\def_vals.db",},
+            new string[] {@"root\us.db", @"root\au.db", @"root\apps.db", @"root\dbnames.db",@"root\dbpaths.db",@"root\roles.db",@"root\methods.db", @"root\method_bindings.db",@"root\method_acls.db",@"root\column_names.db",@"root\def_vals.db",},
             new string[] {@"ChoresAPP\us.db", @"ChoresAPP\au.db", @"ChoresAPP\ch.db"},
         };
         static string[][] roles =
@@ -71,6 +71,7 @@ namespace LoginSystem_server
             {
                 new string[] { "username", "password", "role"},
                 new string[] { "username", "auth_token"},
+                new string[] { "null"},
                 new string[] { "null"},
                 new string[] { "null"},
                 new string[] { "null"},
@@ -114,12 +115,17 @@ namespace LoginSystem_server
         };
         static string[][] available_methods =
         {
-            new string[] { "sign", "log", "bind_code","list_ram_dbs","new_app", "delete_app", "new_db", "delete_db"},
+            new string[] { "sign", "log", "bind_code","list_ram_dbs","new_app", "delete_app", "new_db", "delete_db", "new_method", "delete_method"},
             new string[] { "sign", "log", "new_chore"},
+        };
+        static string[][] method_bindings =
+        {
+            new string[] { "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded"},
+            new string[] { "hardcoded", "hardcoded", "hardcoded"},
         };
         static string[][] method_permissions =
         {
-            new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0"},
+            new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0", "0", "0"},
             new string[]{ "0:2", "0:2", "0:1"  },
         };
 
@@ -396,11 +402,87 @@ namespace LoginSystem_server
             }
 
             int app_index = GetAppIndex(app);
+            int method_ind = GetMethodIndex(method, app);
             if (!available_methods[app_index].Contains(method))
             {
                 method_success = "method_is_not_found";
                 return method_success;
             }
+
+
+            //Binded methods
+
+            string binded_exe = method_bindings[app_index][method_ind];
+            if(binded_exe == "none")
+            {
+                Send("Method does nothing yet.", user_endp);
+                return method_success;
+            }
+            if(binded_exe != "hardcoded")
+            {
+
+                string auth_token = "";
+                int index_found = -1;
+                for (int i = 0; i < arg_names.Count; i++)
+                {
+                    if (arg_names[i] == "auth")
+                    {
+                        index_found = i;
+                        break;
+                    }
+                }
+                if (index_found != -1)
+                {
+                    auth_token = arg_values[index_found];
+                }
+
+                if(!CheckPermission(auth_token, method, app))
+                {
+                    method_success = "operation_not_permitted";
+                    return method_success;
+                }
+
+                string output_txt = binded_exe + ".txt";
+                string output_ = "none";
+
+
+                LaunchBindExe(binded_exe, output_txt);
+
+                DateTime d = DateTime.Now;
+                while (true)
+                {
+                    if(DateTime.Now > d.AddSeconds(5))
+                    {
+                        Send("Method time-out.",user_endp);
+                        return method_success;
+                    }
+                    string output = "";
+                    while (true) 
+                    {
+                        try
+                        {
+                            output = File.ReadAllText(output_txt);
+                            break;
+                        }catch{ }
+                    }
+                    if (output.StartsWith("Done!"))
+                    {
+                        output_ = output.Substring(6);
+                        break;
+                    }
+                    if (output.StartsWith("Failed!"))
+                    {
+                        Send("Method failed!", user_endp);
+                        return method_success;
+                    }
+                }
+
+                Send(output_ + " ", user_endp);
+                return method_success;
+            }
+
+
+            //Hardcoded methods
 
             //_________________________________________
             //Shared methods part
@@ -785,6 +867,75 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "delete_db":
+                        {
+                            string auth_token = "";
+                            string app_name;
+                            string db_name;
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "db_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "db_name_not_provided";
+                                return method_success;
+                            }
+                            db_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = DeleteDatabase(new string[][]
+                                {
+                                    new string[] {"db_name", db_name},
+                                }, app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
                     case "bind_code":
                         {
                             string auth_token = "";
@@ -864,6 +1015,144 @@ namespace LoginSystem_server
                                     new string[] {"app_name", app_name },
                                     new string[] {"method", method_name },
                                     new string[] {"src", src_base64},
+                                }, app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "new_method":
+                        {
+                            string auth_token = "";
+                            string app_name;
+                            string method_name;
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "method_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "method_name_not_provided";
+                                return method_success;
+                            }
+                            method_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = NewMethod(new string[][]
+                                {
+                                    new string[] {"method_name", method_name},
+                                }, app_name);
+                                Send("Success!", user_endp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "delete_method":
+                        {
+                            string auth_token = "";
+                            string app_name;
+                            string method_name;
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "app_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "app_name_not_provided";
+                                return method_success;
+                            }
+                            app_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "method_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "method_name_not_provided";
+                                return method_success;
+                            }
+                            method_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                method_success = DeleteMethod(new string[][]
+                                {
+                                    new string[] {"method_name", method_name},
                                 }, app_name);
                                 Send("Success!", user_endp);
                             }
@@ -989,12 +1278,12 @@ namespace LoginSystem_server
         {
             string success_ = "success";
             int app_index = GetAppIndex(app);
-            string app_name = parameters[GetParameterIndex(parameters, "app_name")][1];
             string method = parameters[GetParameterIndex(parameters, "method")][1];
+            int method_index = GetMethodIndex(method, app);
             string source_code_base64 = parameters[GetParameterIndex(parameters, "src")][1];
 
-            string exe_path = binded_functions_dir + app_name +"_"+method + "_function.exe";
-            string src_path = binded_functions_src_dir + app_name + "_" + method + "_function_src.cs";
+            string exe_path = binded_functions_dir + app +"_"+method + "_function.exe";
+            string src_path = binded_functions_src_dir + app + "_" + method + "_function_src.cs";
             CreateFile(exe_path);
             CreateFile(src_path);
             try
@@ -1005,6 +1294,209 @@ namespace LoginSystem_server
                 return "not_a_valid_base64_string";
             }
             CompileFile(src_path, exe_path);
+
+            method_bindings[app_index][method_index] = exe_path;
+            return success_;
+        }
+        static string DeleteMethod(string[][] parameters, string app)
+        {
+            string success_ = "success";
+            int app_index = GetAppIndex(app);
+            string method_name = parameters[GetParameterIndex(parameters, "method_name")][1];
+            int method_ind = GetMethodIndex(method_name, app);
+
+            //Method array descent
+            {
+                int l = available_methods[app_index].Length - 1;
+                string[] method_new = new string[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == method_ind)
+                    {
+                        d++;
+                    }
+                    method_new[i] = available_methods[app_index][d];
+                    d++;
+                }
+                available_methods[app_index] = method_new;
+            }
+
+            //Method Bindings array descent
+            {
+                int l = method_bindings[app_index].Length - 1;
+                string[] method_binding_new = new string[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == method_ind)
+                    {
+                        d++;
+                    }
+                    method_binding_new[i] = method_bindings[app_index][d];
+                    d++;
+                }
+                method_bindings[app_index] = method_binding_new;
+            }
+
+            //Method array descent
+            {
+                int l = method_permissions[app_index].Length - 1;
+                string[] method_acl_new = new string[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == method_ind)
+                    {
+                        d++;
+                    }
+                    method_acl_new[i] = method_permissions[app_index][d];
+                    d++;
+                }
+                method_permissions[app_index] = method_acl_new;
+            }
+            return success_;
+        }
+        static string NewMethod(string[][] parameters,string app)
+        {
+            string success_ = "success";
+            int app_index = GetAppIndex(app);
+            string method_name = parameters[GetParameterIndex(parameters, "method_name")][1];
+
+            //Method array append
+            {
+                int l = available_methods[app_index].Length;
+                string[] method_new = new string[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    method_new[i] = available_methods[app_index][i];
+                }
+
+                method_new[l] = method_name;
+                available_methods[app_index] = method_new;
+            }
+            //Method bindings append
+            {
+                int l =method_bindings[app_index].Length;
+                string[] method_bind_new = new string[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    method_bind_new[i] = method_bindings[app_index][i];
+                }
+
+                method_bind_new[l] = "none";
+                method_bindings[app_index] = method_bind_new;
+            }
+            //Method ACLs append
+            {
+                int l = method_permissions[app_index].Length;
+                string[] method_acls_new = new string[l + 1];
+                for (int i = 0; i < l; i++)
+                {
+                    method_acls_new[i] = method_permissions[app_index][i];
+                }
+
+                method_acls_new[l] = "0";
+                method_permissions[app_index] = method_acls_new;
+            }
+
+            return success_;
+        }
+        static string DeleteDatabase(string[][] parameters, string app)
+        {
+            string success_ = "success";
+            int app_index = GetAppIndex(app);
+            string database_name = parameters[GetParameterIndex(parameters, "db_name")][1];
+            int database_index = GetDatabaseIndex(app,database_name);
+
+            FileInfo file = new FileInfo(databases_dir + database_paths[app_index][database_index]);
+            file.Delete();
+
+            //Database names array descent
+            {
+                int l = database_names[app_index].Length - 1;
+                string[] database_names_new = new string[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if(i == database_index)
+                    {
+                        d++;
+                    }
+                    database_names_new[i] = database_names[app_index][d];
+                    d++;
+                }
+                database_names[app_index] = database_names_new;
+            }
+
+            //Database paths array descent
+            {
+                int l = database_paths[app_index].Length - 1;
+                string[] database_paths_new = new string[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == database_index)
+                    {
+                        d++;
+                    }
+                    database_paths_new[i] = database_paths[app_index][d];
+                    d++;
+                }
+                database_paths[app_index] = database_paths_new;
+            }
+
+            //Column names array descent
+            {
+                int l = column_names[app_index].Length - 1;
+                string[][] column_names_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == database_index)
+                    {
+                        d++;
+                    }
+                    column_names_new[i] = column_names[app_index][d];
+                    d++;
+                }
+                column_names[app_index] = column_names_new;
+            }
+
+            //Default values array descent
+            {
+                int l = default_values[app_index].Length - 1;
+                string[][] def_vals_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == database_index)
+                    {
+                        d++;
+                    }
+                    def_vals_new[i] = default_values[app_index][d];
+                    d++;
+                }
+                default_values[app_index] = def_vals_new;
+            }
+
+            //RAM Database array descent
+            {
+                int l = databases[app_index].Length - 1;
+                List<string[]>[] databases_new = new List<string[]>[l];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == database_index)
+                    {
+                        d++;
+                    }
+                    databases_new[i] = databases[app_index][d];
+                    d++;
+                }
+                databases[app_index] = databases_new;
+            }
+
             return success_;
         }
         static string CreateDatabase(string[][] parameters, string app)
@@ -1196,6 +1688,19 @@ namespace LoginSystem_server
                 available_methods = methods_new;
             }
 
+            //Methods Bindings append
+            {
+                int l = method_bindings.Length;
+                string[][] methods_binding_new = new string[l + 1][];
+                for (int i = 0; i < l; i++)
+                {
+                    methods_binding_new[i] = method_bindings[i];
+                }
+
+                methods_binding_new[l] = new string[] { "hardcoded", "hardcoded" };
+                method_bindings = methods_binding_new;
+            }
+
             //Method ACLs append
             {
                 int l = method_permissions.Length;
@@ -1382,6 +1887,24 @@ namespace LoginSystem_server
                 available_methods = methods_new;
             }
 
+            //Method Bindings append
+            {
+                int l = method_bindings.Length - 1;
+                string[][] methods_binding_new = new string[l][];
+                int d = 0;
+                for (int i = 0; i < l; i++)
+                {
+                    if (i == app_index)
+                    {
+                        d++;
+                    }
+                    methods_binding_new[i] = method_bindings[d];
+                    d++;
+                }
+
+                method_bindings = methods_binding_new;
+            }
+
             //Method ACLs append
             {
                 int l = method_permissions.Length - 1;
@@ -1544,6 +2067,27 @@ namespace LoginSystem_server
                 }
             }
             return -1;
+        }
+        static int GetMethodIndex(string method_name,string app_name)
+        {
+            int app_ind = GetAppIndex(app_name);
+
+            int ind = 0;
+            bool found = false;
+            foreach (string method in available_methods[app_ind])
+            {
+                if (method_name == method)
+                {
+                    found = true;
+                    break;
+                }
+                ind++;
+            }
+            if (!found)
+            {
+                return -1;
+            }
+            return ind;
         }
         static int GetDatabaseIndex(string app_name, string database_name)
         {
@@ -2055,6 +2599,25 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "method_bindings":
+                        {
+                            List<string[]> method_bindings_list = new List<string[]>();
+                            while (true)
+                            {
+                                string line = reader.ReadLine();
+                                if (line == null || line == "")
+                                {
+                                    break;
+                                }
+                                method_bindings_list.Add(line.Split('~'));
+                            }
+                            method_bindings = new string[method_bindings_list.Count][];
+                            for (int j = 0; j < method_bindings_list.Count; j++)
+                            {
+                                method_bindings[j] = method_bindings_list[j];
+                            }
+                        }
+                        break;
                     case "method_acls":
                         {
                             List<string[]> method_acls_list = new List<string[]>();
@@ -2265,6 +2828,24 @@ namespace LoginSystem_server
                             }
                         }
                         break;
+                    case "method_bindings":
+                        {
+                            foreach (string[] method_bind in method_bindings)
+                            {
+                                string entry = "";
+                                for (int j = 0; j < method_bind.Length; j++)
+                                {
+                                    entry += method_bind[j];
+                                    if (j != method_bind.Length - 1)
+                                    {
+                                        entry += "~";
+                                    }
+                                }
+                                writer.WriteLine(entry);
+                            }
+                        }
+                        break;
+
                     case "method_acls":
                         {
                             foreach (string[] methods_acls in method_permissions)
@@ -2356,6 +2937,13 @@ namespace LoginSystem_server
             proc.StartInfo.Arguments = "/t:exe /out:"+exepath+" "+sourcepath;
             proc.StartInfo.UseShellExecute = false;
             proc.StartInfo.CreateNoWindow = true;
+            proc.Start();
+        }
+        public static void LaunchBindExe(string exepath, string output_txt_path)
+        {
+            Process proc = new Process();
+            proc.StartInfo.FileName = exepath;
+            proc.StartInfo.Arguments = output_txt_path;
             proc.Start();
         }
         public static void CreateFile(string path)

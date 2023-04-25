@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.IO;
 
 namespace LoginSystem_server
 {
@@ -28,6 +29,8 @@ namespace LoginSystem_server
         static Random rand = new Random();
         static int listening_port = rand.Next() % 30000 + 3000;
 
+        static string binded_code = @"L:\binding.cs";
+
         public static HttpClient http_client = new HttpClient()
         {
             //BaseAddress = new Uri("http://unyxe.mywire.org"),
@@ -37,24 +40,38 @@ namespace LoginSystem_server
 
         public static void Main()
         {
+
             //GetUsernameByIP("");
             //Console.ReadLine();
             string s = "";
 
 
-            Send("<root>\\bind_code\\?auth-c90010128ac4159bd196b5bb5d1a99dc&app_name-TestApp&method-TestMethod&src-dXNpbmcgU3lzdGVtOwp1c2luZyBTeXN0ZW0uQ29sbGVjdGlvbnMuR2VuZXJpYzsKdXNpbmcgU3lzdGVtLkxpbnE7CnVzaW5nIFN5c3RlbS5UZXh0Owp1c2luZyBTeXN0ZW0uVGhyZWFkaW5nLlRhc2tzOwoKbmFtZXNwYWNlIEhlbGxvV29ybGRBcHAKewogICAgaW50ZXJuYWwgY2xhc3MgUHJvZ3JhbQogICAgewogICAgICAgIHN0YXRpYyB2b2lkIE1haW4oc3RyaW5nW10gYXJncykKICAgICAgICB7CiAgICAgICAgICAgIENvbnNvbGUuV3JpdGVMaW5lKCJIZWxsbyBXb3JsZCIpOwogICAgICAgICAgICBDb25zb2xlLlJlYWRMaW5lKCk7CiAgICAgICAgfQogICAgfQp9Cg==" + "~" + listening_port);
+            
 
             while (true)
             {
                 try
                 {
-                    Send(Console.ReadLine() + "~" + listening_port);
+                    string message = Console.ReadLine();
+                    if (message.StartsWith("<root>\\bind_code\\?"))
+                    {
+                        SendCodeBinding(binded_code, message);
+                        continue;
+                    }
+                    Send(message + "~" + listening_port);
                 }
                 catch { }
             }
 
         }
-
+        public static void SendCodeBinding(string src_path, string req)
+        {
+            //Console.WriteLine("Sending");
+            string code = File.ReadAllText(src_path);
+            Console.WriteLine(code);
+            Send(req +ToBase64(code)+ "~" + listening_port);
+            //Console.WriteLine("Sent");
+        }
         public static void Send(string str)
         {
             SendHttp(ToBase64(str));
