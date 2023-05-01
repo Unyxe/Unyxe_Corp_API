@@ -7,28 +7,41 @@ using System.Text;
 using System.Threading;
 using System.Security.Cryptography;
 using System.IO;
-using System.Runtime.InteropServices;
-using static System.Net.Mime.MediaTypeNames;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Text.Json.Nodes;
+using Unyxe_Corp_API;
+using System.Net.Http;
 
 namespace LoginSystem_server
 {
     internal class Program
     {
-        static Socket socket;
-
-
-        static IPAddress ip2;
-        static IPEndPoint endPoint2;
-        static Thread listenThread;
+        static IPAddress ipAddress = IPAddress.Any;
+        static int port = 80;
+        static TcpListener listener = new TcpListener(ipAddress, port);
 
 
         static public string last_msg = "";
 
         static bool http_display_mode = false;
-        static bool robust_enable = false;
+        static bool robust_enable = true;
 
         static Random rand = new Random();
+
+        static string pre_http = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: ";
+
+
+        //TLS handshake params
+        static List<int> active_connection_ids = new List<int>();
+        static List<TLS_library> tls_libs = new List<TLS_library>();
+
+
+        //Bard API keys
+        public static string[] bard_api_keys = new string[1] { "VwjYyK2Kr3VynTgxVkbPEuT6jOiUbyeKnboKHr2vCpiYXBSIbT70XWlQJAR9sPbYUDExpQ." };
+        public static string[] bard_at_vars = new string[1] { "ABi_lZjZ6Ym_9M-LrT9Rhfwlr2rr:1682883560998" };
+        public static int bard_api_key_num = 0;
+
 
         static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
 
@@ -48,19 +61,22 @@ namespace LoginSystem_server
         };
 
 
-        static string[] apps = { "root", "chores" };
+        static string[] apps = { "root", "chores", "bard_search" };
         static string[][] database_names =
         {
             new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods","method_bindings", "method_acls", "column_names", "default_values"},
             new string[] {"users", "auth_tokens", "chores"},
+            new string[] {"users", "auth_tokens"},
         };
         static string[][] database_paths =
         {
             new string[] {@"root\us.db", @"root\au.db", @"root\apps.db", @"root\dbnames.db",@"root\dbpaths.db",@"root\roles.db",@"root\methods.db", @"root\method_bindings.db",@"root\method_acls.db",@"root\column_names.db",@"root\def_vals.db",},
             new string[] {@"ChoresAPP\us.db", @"ChoresAPP\au.db", @"ChoresAPP\ch.db"},
+            new string[] {@"bard_search\us.db", @"bard_search\au.db"},
         };
         static string[][] roles =
         {
+            new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
         };
@@ -88,6 +104,12 @@ namespace LoginSystem_server
                 new string[] { "username", "auth_token"},
                 new string[] { "username_sender", "username_reciever", "chore_type", "chore_desc", "done_it"},
             },
+            //APP: bard_search
+            new string[][]
+            {
+                new string[] { "username", "password", "role"},
+                new string[] { "username", "auth_token"},
+            },
         };
         static string[][][] default_values =
         {
@@ -112,20 +134,29 @@ namespace LoginSystem_server
                 new string[] { "null", "null"},
                 new string[] { "null", "null", "null", "-", "false"},
             },
+            //APP: bard_search
+            new string[][]
+            {
+                new string[] { "null", "null", "User"},
+                new string[] { "null", "null"},
+            },
         };
         static string[][] available_methods =
         {
             new string[] { "sign", "log", "bind_code","list_ram_dbs","new_app", "delete_app", "new_db", "delete_db", "new_method", "delete_method"},
             new string[] { "sign", "log", "new_chore"},
+            new string[] { "sign", "log", "search"},
         };
         static string[][] method_bindings =
         {
             new string[] { "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
+            new string[] { "hardcoded", "hardcoded", "hardcoded"},
         };
         static string[][] method_permissions =
         {
             new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0", "0", "0"},
+            new string[]{ "0:2", "0:2", "0:1"  },
             new string[]{ "0:2", "0:2", "0:1"  },
         };
 
@@ -157,13 +188,14 @@ namespace LoginSystem_server
             Console.WriteLine("Done\n");
             Console.WriteLine("Listening started!\n\n");
             Console.WriteLine(GetLocalIPAddress());
-            socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            listener.Start();
             Listen1();
+            Console.ReadLine();
         }
 
 
 
-        private static void Send(string str, Socket clientSocket)
+        private static void Send_(string str, Socket clientSocket)
         {
             try
             {
@@ -178,149 +210,202 @@ namespace LoginSystem_server
                 }
                 Console.WriteLine("|"+str + "|\n\n\n");
             }
-            catch (Exception ex) 
+            catch (Exception ex) when (robust_enable)
             {
                 Console.WriteLine("Sending error: " + ex.Message);
                 Console.WriteLine("IP is offline");
             }
             
         }
+        static void Send(NetworkStream stream, int connection_id, string msg_str = null, byte[] msg_bytes = null)
+        {
+            string act_msg = msg_str;
+            
+            if(msg_bytes != null)
+            {
+                act_msg = ToBase64FromByte(msg_bytes);
+            }
+            string display_message = act_msg.Substring(0, act_msg.Length < 200?act_msg.Length:199);
+            if (connection_id != -1)
+            {
+                TLS_library tls_lib = tls_libs[GetConnectionID(connection_id)];
+                act_msg = tls_lib.EncryptSymmetric(act_msg, tls_lib.GetSymmetricKey());
+            }
+            string msg = pre_http + act_msg.Length + "\r\n\r\n" + act_msg;
+
+            byte[] message = Encoding.ASCII.GetBytes(msg);
+            stream.Write(message, 0, message.Length);
+            Console.WriteLine("[=>] "+display_message + "\n");
+        }
 
         private static void Listen1()
         {
-            listenThread = new Thread(new ThreadStart(Listen));
+            Thread listenThread = new Thread(new ThreadStart(Listen));
             listenThread.Start();
         }
 
-        private static void Listen()
+        static async void Listen()
         {
-            try
+            while (true)
             {
-                ip2 = IPAddress.Parse(GetLocalIPAddress());
-                endPoint2 = new IPEndPoint(ip2, 8080);
-                socket.Bind(endPoint2);
-                socket.Listen(100);
-                while (true)
+                TcpClient client = await listener.AcceptTcpClientAsync();
+                _ = Listen_(client);
+            }
+        }
+
+        static async Task Listen_(TcpClient client)
+        {
+            using (client)
+            {
+                NetworkStream stream = client.GetStream();
+
+                byte[] buffer = new byte[client.ReceiveBufferSize];
+                int bytesRead = await stream.ReadAsync(buffer, 0, client.ReceiveBufferSize);
+                string headers = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+
+                // Get the content length from the headers
+                int contentLength = 0;
+                int connection_id = -1;
+                foreach (string line in headers.Split('\n'))
                 {
-                    Socket clientSocket = socket.Accept();
-                    byte[] buffer = new byte[65536];
-                    int bytesReceived = clientSocket.Receive(buffer);
-                    string message = Encoding.ASCII.GetString(buffer, 0, bytesReceived);
-                    last_msg = message;
-                    if (http_display_mode)
+                    if (line.StartsWith("Content-Length:"))
                     {
-                        Console.WriteLine("[" + clientSocket.RemoteEndPoint.ToString() + "]" + message);
+                        contentLength = int.Parse(line.Split(':')[1].Trim());
                     }
-                    //Send("Hello", clientSocket);
-                    string m = "";
-                    bool write_ = false;
-                    foreach (char c in message)
+                    if (line.StartsWith("Connection_id:"))
                     {
-                        if (write_)
-                        {
-                            if (c == ' ')
-                            {
-                                break;
-                            }
-                            m += c;
-                        }
-                        if (c == ' ')
-                        {
-                            write_ = true;
-                        }
+                        connection_id = int.Parse(line.Split(':')[1].Trim());
                     }
+                }
+
+
+
+                // Read the request body in chunks
+                MemoryStream ms = new MemoryStream();
+                int totalBytesRead = 0;
+                while (totalBytesRead < contentLength)
+                {
+                    int bytesToRead = Math.Min(client.ReceiveBufferSize, contentLength - totalBytesRead);
+                    buffer = new byte[bytesToRead];
+                    bytesRead = await stream.ReadAsync(buffer, 0, bytesToRead);
+                    if (bytesRead == 0)
+                    {
+                        Send(stream, connection_id, "Failed");
+                        return;
+                    }
+                    totalBytesRead += bytesRead;
+                    ms.Write(buffer, 0, bytesRead);
+                }
+
+                // Convert the request body to a string
+                ms.Seek(0, SeekOrigin.Begin);
+                string body = Encoding.ASCII.GetString(ms.ToArray());
+
+
+                //TLS handshake/decryption
+                if (connection_id == -1) { return; }
+                int conn_id = GetConnectionID(connection_id);
+                if (conn_id == -1)
+                {
+                    TLS_library lib = new TLS_library();
+                    byte[] symm_key = lib.GetSymmetricKey();
+                    string pub_key = FromBase64(body);
+                    string symm_key_enc = ToBase64FromByte(lib.EncryptAssymetric(symm_key, pub_key));
+                    active_connection_ids.Add(connection_id);
+                    tls_libs.Add(lib);
+                    Send(stream, -1, symm_key_enc);
+                    return;
+                }
+                else
+                {
+                    TLS_library lib = tls_libs[conn_id];
+                    byte[] symm_key = lib.GetSymmetricKey();
+                    body = lib.DecryptSymmetric(body, symm_key);
+                }
+
+                string message = FromBase64(body);
+
+                last_msg = message;
+                if (http_display_mode)
+                {
+                    Console.WriteLine("[" + client.Client.RemoteEndPoint.ToString() + "]" + message);
+                }
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("[<=] "+message + "\n");
+                Console.ForegroundColor = ConsoleColor.Green;
+
+                try
+                {
+                    string[] app_parse = ParseForApp(message);
+                    message = app_parse[1];
+                    string app = app_parse[0];
+                    if (!apps.Contains(app))
+                    {
+                        string method_success = "app_is_not_found";
+                        Send(stream, connection_id, "Failed! Reason: " + method_success);
+                        return;
+                    }
+                    string[] args = ParseMessage(message, app);
+
+                    string ipad = "";
+                    string endp_str = client.Client.RemoteEndPoint.ToString();
+                    for (int i = 0; i < endp_str.Length; i++)
+                    {
+                        if (endp_str[i] == ':')
+                        {
+                            break;
+                        }
+                        ipad += endp_str[i];
+                    }
+                    IPAddress ipaddr = IPAddress.Parse(ipad);
                     try
                     {
-                        message = FromBase64(m.Substring(1, m.Length - 1));
-                    }
-                    catch { continue; }
-                    Console.WriteLine("|" + message + "|\n");
-
-                    try
-                    {
-                        Socket endp = clientSocket;
-
-
-                        string[] app_parse = ParseForApp(message);
-                        message = app_parse[1];
-                        string app = app_parse[0];
-                        if (!apps.Contains(app))
+                        if (args[1] == "success")
                         {
-                            string method_success = "app_is_not_found";
-                            Send("Failed! Reason: " + method_success, endp);
-                            continue;
+                            //Send("Success! Method: " + args[2] + " Message_Body: " + args[3], endp);
                         }
-                        string[] args = ParseMessage(message, app);
-
-                        string ipad = "";
-                        string endp_str = clientSocket.RemoteEndPoint.ToString();
-                        for (int i = 0; i < endp_str.Length; i++)
+                        else
                         {
-                            if (endp_str[i] == ':')
-                            {
-                                break;
-                            }
-                            ipad += endp_str[i];
+                            //Send("Failed! Reason: " + args[1], endp);
                         }
-                        IPAddress ipaddr = IPAddress.Parse(ipad);
-                        try
+                        if (args[1] == "success")
                         {
-                            if (args[1] == "success")
+                            string success_doing_method = DoMethod(args[2], app, args[3], stream, connection_id);
+                            if (success_doing_method == "success")
                             {
-                                //Send("Success! Method: " + args[2] + " Message_Body: " + args[3], endp);
+                                if (args[2] == "sign" || args[2] == "tweet")
+                                {
+                                    Send(stream, connection_id, "Success!");
+                                }
+
                             }
                             else
                             {
-                                //Send("Failed! Reason: " + args[1], endp);
-                            }
-                            if (args[1] == "success")
-                            {
-                                string success_doing_method = DoMethod(args[2], app, args[3], endp);
-                                if (success_doing_method == "success")
-                                {
-                                    if (args[2] == "sign" || args[2] == "tweet")
-                                    {
-                                        Send("Success!", endp);
-                                    }
-
-                                }
-                                else
-                                {
-                                    Send("Failed! Reason: " + success_doing_method, endp);
-                                }
+                                Send(stream, connection_id, "Failed! Reason: " + success_doing_method);
                             }
                         }
-                        catch (Exception) when (robust_enable)
-                        {
-                            Send("Failed! Server error occured!", endp);
-                        }
-                        
-                        if(app == "root")
-                        {
-                            //Console.WriteLine("Writing root db...");
-                            WriteRootDatabase();
-                        }
-                        WriteDataToDatabase();
-                        ReadDataFromDatabase();
-                        WriteDataToDatabase();
                     }
-                    catch (Exception) when (robust_enable)
+                    catch (Exception e) when (robust_enable)
                     {
-                        Console.WriteLine("Error occured, while trying to parse the message");
+                        Send(stream, connection_id, "Failed! Server error occured! " + e.Message);
                     }
 
-                    clientSocket.Close();
-
+                    if (app == "root")
+                    {
+                        //Console.WriteLine("Writing root db...");
+                        WriteRootDatabase();
+                    }
+                    WriteDataToDatabase();
+                    ReadDataFromDatabase();
+                    WriteDataToDatabase();
+                }
+                catch (Exception e) when (robust_enable)
+                {
+                    Console.WriteLine("Error occured, while trying to parse the message! " + e.Message);
                 }
             }
-            catch (Exception ex) when (robust_enable)
-            {
-                Console.WriteLine("Listening error: " + ex.Message);
-                Main();
-            }
-
         }
-        public static string DoMethod(string method, string app, string arguments_raw, Socket user_endp)
+        public static string DoMethod(string method, string app, string arguments_raw, NetworkStream stream, int connection_id)
         {
 
             List<string> arg_names = new List<string>();
@@ -403,7 +488,12 @@ namespace LoginSystem_server
 
             int app_index = GetAppIndex(app);
             int method_ind = GetMethodIndex(method, app);
-            if (!available_methods[app_index].Contains(method))
+            if(app_index == -1)
+            {
+                method_success = "app_is_not_found";
+                return method_success;
+            }
+            if (method_ind == -1)
             {
                 method_success = "method_is_not_found";
                 return method_success;
@@ -415,7 +505,7 @@ namespace LoginSystem_server
             string binded_exe = method_bindings[app_index][method_ind];
             if(binded_exe == "none")
             {
-                Send("Method does nothing yet.", user_endp);
+                Send(stream, connection_id, "Method does nothing yet.");
                 return method_success;
             }
             if(binded_exe != "hardcoded")
@@ -453,7 +543,7 @@ namespace LoginSystem_server
                 {
                     if(DateTime.Now > d.AddSeconds(5))
                     {
-                        Send("Method time-out.",user_endp);
+                        Send(stream, connection_id, "Method time-out.");
                         return method_success;
                     }
                     string output = "";
@@ -463,7 +553,7 @@ namespace LoginSystem_server
                         {
                             output = File.ReadAllText(output_txt);
                             break;
-                        }catch{ }
+                        }catch when (robust_enable){ }
                     }
                     if (output.StartsWith("Done!"))
                     {
@@ -472,12 +562,12 @@ namespace LoginSystem_server
                     }
                     if (output.StartsWith("Failed!"))
                     {
-                        Send("Method failed!", user_endp);
+                        Send(stream, connection_id, "Method failed!");
                         return method_success;
                     }
                 }
 
-                Send(output_ + " ", user_endp);
+                Send(stream, connection_id, output_ + " ");
                 return method_success;
             }
 
@@ -626,7 +716,7 @@ namespace LoginSystem_server
                             }, app);
                             if (method_success == "success")
                             {
-                                Send("Auth token: " + GetUserAuthToken(username, app), user_endp);
+                                Send(stream, connection_id, "Auth token: " + GetUserAuthToken(username, app));
                             }
                         }
                         else
@@ -669,7 +759,7 @@ namespace LoginSystem_server
                                 Console.WriteLine("\n\n\n______________________________________");
                                 DisplayRAMDatabaseStructure();
                                 Console.WriteLine("______________________________________\n\n\n");
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -722,7 +812,7 @@ namespace LoginSystem_server
                                 {
                                 new string[] {"app_name", app_name },
                                 });
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -772,7 +862,7 @@ namespace LoginSystem_server
                             if (CheckPermission(auth_token, method, app))
                             {
                                 method_success = DeleteApp(app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -859,7 +949,7 @@ namespace LoginSystem_server
                                     new string[] {"db_name", db_name},
                                     new string[] {"db_path", db_path},
                                 }, app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -928,7 +1018,7 @@ namespace LoginSystem_server
                                 {
                                     new string[] {"db_name", db_name},
                                 }, app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -1016,7 +1106,7 @@ namespace LoginSystem_server
                                     new string[] {"method", method_name },
                                     new string[] {"src", src_base64},
                                 }, app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -1085,7 +1175,7 @@ namespace LoginSystem_server
                                 {
                                     new string[] {"method_name", method_name},
                                 }, app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
                             }
                             else
                             {
@@ -1154,7 +1244,64 @@ namespace LoginSystem_server
                                 {
                                     new string[] {"method_name", method_name},
                                 }, app_name);
-                                Send("Success!", user_endp);
+                                Send(stream, connection_id, "Success!");
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                }
+            }
+            if(app == "bard_search")
+            {
+                switch (method)
+                {
+                    case "search":
+                        {
+                            string query;
+                            string auth_token = "";
+
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "query")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "query_not_provided";
+                                return method_success;
+                            }
+                            query = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                string response = BardGetResponse(query);
+                                //Send(stream, connection_id, "Success!");
+                                Send(stream, connection_id, response);
                             }
                             else
                             {
@@ -1800,7 +1947,7 @@ namespace LoginSystem_server
                         Directory.Delete(databases_dir + app);
                         break;
                     }
-                    catch { }
+                    catch  { }
                 }
 
                 int d = 0;
@@ -2052,6 +2199,68 @@ namespace LoginSystem_server
 
             return success_adding;
         }
+
+        //Bard
+        public static string BardGetResponse(string input)
+        {
+            return BardParseResponse(BardGetRawResponse(input.Replace("\n", string.Empty) + " Provide as much info as you can.") );
+        }
+        public static string BardGetRawResponse(string input)
+        {
+            var handler = new HttpClientHandler()
+            {
+                AllowAutoRedirect = false
+            };
+
+            var client = new HttpClient(handler);
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://bard.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?bl=boq_assistant-bard-web-server_20230404.15_p0&_reqid=1440589");
+
+            var cookie = new Cookie("__Secure-1PSID", bard_api_keys[bard_api_key_num])
+            {
+                Secure = true,
+                HttpOnly = true,
+                Domain = "bard.google.com"
+            };
+
+            handler.CookieContainer.Add(cookie);
+            request.Headers.TryAddWithoutValidation("Origin", "https://bard.google.com");
+
+            var content = new StringContent("f.req=%5Bnull%2C%22%5B%5B%5C%22" + input + "%5C%22%5D%2Cnull%2C%5B%5C%22" + "%5C%22%2C%5C%22" + "%5C%22%2C%5C%22" + "%5C%22%5D%5D%22%5D&at=" + bard_at_vars[bard_api_key_num] + "&", Encoding.UTF8, "application/x-www-form-urlencoded");
+
+            request.Content = content;
+
+            var response = client.SendAsync(request).GetAwaiter().GetResult();
+
+            var responseContent = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            
+            return responseContent;
+        }
+        public static string BardParseResponse(string input)
+        {
+            int offset = 6;
+            string offsetted = input.Substring(offset, input.Length - offset);
+            string json = offsetted;
+
+            Console.ForegroundColor = ConsoleColor.Blue;
+            //Console.WriteLine("\n" + json + "\n");
+            Console.ForegroundColor = ConsoleColor.Green;
+            var substr = JsonNode.Parse(json);
+            
+            //Console.WriteLine(substr[0][2].ToString());
+            if (substr[0][2] == null)
+            {
+                bard_api_key_num++;
+                if(bard_api_key_num == bard_api_keys.Length)
+                {
+                    bard_api_key_num = 0;
+                }
+                return "Rate limit is reached!";
+            }
+            json = substr[0][2].ToString();
+            substr = JsonNode.Parse(json);
+            return substr[0][0].ToString();
+        }
         //___________________________________
 
 
@@ -2236,6 +2445,20 @@ namespace LoginSystem_server
             foreach (string[] user in databases[app_index][db_index])
             {
                 if (user[0] == username)
+                {
+                    return index;
+                }
+                index++;
+            }
+            return -1;
+        }
+
+        static int GetConnectionID(int connection_id)
+        {
+            int index = 0;
+            foreach (int c_id in active_connection_ids)
+            {
+                if (connection_id == c_id)
                 {
                     return index;
                 }

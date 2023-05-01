@@ -21,3 +21,18 @@ L:\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csp
 \\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CoreCompileInputs.cache
 \\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe
 \\lutcfs01.lutc.internal\student$\TPerfilov\Documents\Visual Studio 2019\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.pdb
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Microsoft.Bcl.AsyncInterfaces.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Buffers.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Memory.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Numerics.Vectors.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Runtime.CompilerServices.Unsafe.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Text.Json.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Threading.Tasks.Extensions.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.ValueTuple.dll
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Microsoft.Bcl.AsyncInterfaces.xml
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\System.Text.Json.xml
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.csproj.CopyComplete
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.exe.manifest
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\bin\Debug\Unyxe_Corp_API.application
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.exe.manifest
+C:\Users\lucky\source\repos\Unyxe_Corp_API\Unyxe_Corp_API\obj\Debug\Unyxe_Corp_API.application
