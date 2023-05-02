@@ -27,7 +27,7 @@ namespace LoginSystem_client
 
         static string binded_code = @"C:\binding.cs";
 
-        static string url = "http://unyxe.mywire.org:80";
+        static string url = "http://unyxe.mywire.org:8080";
 
 
         public static void Main()
@@ -39,6 +39,9 @@ namespace LoginSystem_client
 
 
             TLSHandShake();
+
+            //Ping();
+            
             Console.WriteLine();
             while (true)
             {
@@ -51,7 +54,7 @@ namespace LoginSystem_client
                         SendCodeBinding(binded_code, message);
                         continue;
                     }
-                    Send(message);
+                    Send(message, 10);
                 }
                 catch(DivideByZeroException) { }
             }
@@ -62,40 +65,65 @@ namespace LoginSystem_client
             //Console.WriteLine("Sending");
             string code = File.ReadAllText(src_path);
             Console.WriteLine(code);
-            Send(req +"&src-"+ToBase64(code)+ "~" + listening_port);
+            Send(req +"&src-"+ToBase64(code), 10);
             //Console.WriteLine("Sent");
         }
         public static void TLSHandShake()
         {
             Console.WriteLine("[TLS handshake] Started...");
-            Send(tls_lib.GetPublicKey());
+            Send(tls_lib.GetPublicKey(), 10);
             symm_key = tls_lib.DecryptAssymetric(FromBase64ToByte(last_msg), tls_lib.GetPrivateKey());
             handshake_done = true;
             //Console.WriteLine(ToBase64FromByte(symm_key));
             Console.WriteLine("[TLS handshake] Success!");
         }
-        public static void Send(string str)
+        public static void Send(string str, int timeout)
         {
-            str += "~" + listening_port;
+            string d = str;
             string sent = ToBase64(str);
             if (handshake_done)
             {
                 sent = tls_lib.EncryptSymmetric(sent, symm_key);
             }
-            SendHttp(sent);
+            SendHttp(sent, timeout, d);
         }
-        public static void SendHttp(string str)
+        public static void Ping()
         {
-            HttpContent content = new StringContent(str);
+            while (true)
+            {
+                Send(@"<root>\log\", 1);
+            }
+            
+        }
+        public static void SendHttp(string str, int timeout, string display_str)
+        {
+            HttpContent content = new StringContent(str + "~");
 
             HttpClient client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
             client.DefaultRequestHeaders.Add("Connection_id", connection_id + "");
             DateTime now = DateTime.Now;
-            HttpResponseMessage response = client.PostAsync(url, content).Result;
+            HttpResponseMessage response;
+            try
+            {
+                response = client.PostAsync(url, content).Result;
+            }
+            catch { Console.WriteLine("[Response] Failed to send, retry..."); SendHttp(str, timeout, display_str); return; }
             byte[] responseData = response.Content.ReadAsByteArrayAsync().Result;
             TimeSpan diff = DateTime.Now.Subtract(now);
             last_msg = Encoding.ASCII.GetString(responseData);
+            if (last_msg.StartsWith("Encryption failed"))
+            {
+                handshake_done = false;
+                Console.WriteLine("[TLS handshake] Key change...");
+                TLSHandShake();
+                Console.WriteLine("[TLS handshake] Key change finished!");
+
+
+                Console.WriteLine("[Request] " + display_str);
+                Send(display_str, timeout);
+                return;
+            }
             if (handshake_done)
             {
                 last_msg = tls_lib.DecryptSymmetric(last_msg, symm_key);
@@ -103,10 +131,6 @@ namespace LoginSystem_client
                 Console.WriteLine(last_msg);
                 Console.Write("    Latency: " + diff.TotalMilliseconds + "ms \n");
             }
-        }
-        public static void SendToServer(string str)
-        {
-            Send(str + "~" + listening_port);
         }
         public static string GetLocalIPAddress()
         {
