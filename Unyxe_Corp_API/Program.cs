@@ -12,17 +12,19 @@ using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 using Unyxe_Corp_API;
 using System.Net.Http;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace LoginSystem_server
 {
     internal class Program
     {
         static IPAddress ipAddress = IPAddress.Any;
-        static int port = 80;
+        static int port = 8080;
         static TcpListener listener = new TcpListener(ipAddress, port);
 
 
         static public string last_msg = "";
+
 
         static bool http_display_mode = false;
         static bool robust_enable = true;
@@ -34,6 +36,7 @@ namespace LoginSystem_server
 
         //TLS handshake params
         static List<int> active_connection_ids = new List<int>();
+        static List<string> ip_addreses = new List<string>();
         static List<TLS_library> tls_libs = new List<TLS_library>();
 
 
@@ -206,7 +209,7 @@ namespace LoginSystem_server
                 clientSocket.Close();
                 if (http_display_mode)
                 {
-                    Console.WriteLine("[=>]" + string_http);
+                    Console.WriteLine("[<=]" + string_http);
                 }
                 Console.WriteLine("|"+str + "|\n\n\n");
             }
@@ -235,7 +238,7 @@ namespace LoginSystem_server
 
             byte[] message = Encoding.ASCII.GetBytes(msg);
             stream.Write(message, 0, message.Length);
-            Console.WriteLine("[=>] "+display_message + "\n");
+            Console.WriteLine("[" + ip_addreses[GetConnectionID(connection_id)] +" <=] "+display_message + "\n");
         }
 
         private static void Listen1()
@@ -252,6 +255,21 @@ namespace LoginSystem_server
                 _ = Listen_(client);
             }
         }
+        private static byte[] ReadNetworkStream(NetworkStream m_stream)
+        {
+            //Console.WriteLine("Reading stream");
+            List<byte> m_buffer = new List<byte>();
+            while (true)
+            {
+                var next = m_stream.ReadByte();
+                string b = Encoding.ASCII.GetString(new byte[] { (Byte)next });
+                if (next < 0 || next == 126) {break; } // no more data
+
+                m_buffer.Add((byte)next);
+            }
+            //Console.WriteLine("Read finished");
+            return m_buffer.ToArray();
+        }
 
         static async Task Listen_(TcpClient client)
         {
@@ -259,14 +277,12 @@ namespace LoginSystem_server
             {
                 NetworkStream stream = client.GetStream();
 
-                byte[] buffer = new byte[client.ReceiveBufferSize];
-                int bytesRead = await stream.ReadAsync(buffer, 0, client.ReceiveBufferSize);
-                string headers = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                string request = Encoding.ASCII.GetString(ReadNetworkStream(stream));
 
                 // Get the content length from the headers
                 int contentLength = 0;
                 int connection_id = -1;
-                foreach (string line in headers.Split('\n'))
+                foreach (string line in request.Split('\n'))
                 {
                     if (line.StartsWith("Content-Length:"))
                     {
@@ -280,40 +296,27 @@ namespace LoginSystem_server
 
 
 
-                // Read the request body in chunks
-                MemoryStream ms = new MemoryStream();
-                int totalBytesRead = 0;
-                while (totalBytesRead < contentLength)
-                {
-                    int bytesToRead = Math.Min(client.ReceiveBufferSize, contentLength - totalBytesRead);
-                    buffer = new byte[bytesToRead];
-                    bytesRead = await stream.ReadAsync(buffer, 0, bytesToRead);
-                    if (bytesRead == 0)
-                    {
-                        Send(stream, connection_id, "Failed");
-                        return;
-                    }
-                    totalBytesRead += bytesRead;
-                    ms.Write(buffer, 0, bytesRead);
-                }
-
-                // Convert the request body to a string
-                ms.Seek(0, SeekOrigin.Begin);
-                string body = Encoding.ASCII.GetString(ms.ToArray());
-
+                string body = request.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)[1];
 
                 //TLS handshake/decryption
                 if (connection_id == -1) { return; }
                 int conn_id = GetConnectionID(connection_id);
                 if (conn_id == -1)
                 {
-                    TLS_library lib = new TLS_library();
-                    byte[] symm_key = lib.GetSymmetricKey();
-                    string pub_key = FromBase64(body);
-                    string symm_key_enc = ToBase64FromByte(lib.EncryptAssymetric(symm_key, pub_key));
-                    active_connection_ids.Add(connection_id);
-                    tls_libs.Add(lib);
-                    Send(stream, -1, symm_key_enc);
+                    //Console.WriteLine("New conn");
+                    try
+                    {
+                        TLS_library lib = new TLS_library();
+                        byte[] symm_key = lib.GetSymmetricKey();
+                        string pub_key = FromBase64(body);
+                        //Console.WriteLine(pub_key);
+                        string symm_key_enc = ToBase64FromByte(lib.EncryptAssymetric(symm_key, pub_key));
+                        active_connection_ids.Add(connection_id);
+                        ip_addreses.Add(client.Client.RemoteEndPoint.ToString());
+                        tls_libs.Add(lib);
+                        Send(stream, -1, symm_key_enc);
+                    }
+                    catch { Send(stream, -1, "Encryption failed"); }
                     return;
                 }
                 else
@@ -328,10 +331,10 @@ namespace LoginSystem_server
                 last_msg = message;
                 if (http_display_mode)
                 {
-                    Console.WriteLine("[" + client.Client.RemoteEndPoint.ToString() + "]" + message);
+                    Console.WriteLine("[" + client.Client.RemoteEndPoint.ToString() + "]" + request);
                 }
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[<=] "+message + "\n");
+                Console.WriteLine("[" + ip_addreses[GetConnectionID(connection_id)] +" =>] "+message + "\n");
                 Console.ForegroundColor = ConsoleColor.Green;
 
                 try
@@ -1279,7 +1282,16 @@ namespace LoginSystem_server
                                 method_success = "query_not_provided";
                                 return method_success;
                             }
-                            query = arg_values[index_found];
+                            try
+                            {
+
+                                query = FromBase64(arg_values[index_found]);
+                            }
+                            catch when (robust_enable)
+                            {
+                                method_success = "invalid_query";
+                                return method_success;
+                            }
 
                             index_found = -1;
                             for (int i = 0; i < arg_names.Count; i++)
@@ -1299,6 +1311,7 @@ namespace LoginSystem_server
 
                             if (CheckPermission(auth_token, method, app))
                             {
+                                Console.WriteLine("[BARD] Sending {" + query + "} to bard.");
                                 string response = BardGetResponse(query);
                                 //Send(stream, connection_id, "Success!");
                                 Send(stream, connection_id, response);
