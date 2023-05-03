@@ -14,7 +14,7 @@ using Unyxe_Corp_API;
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 
-namespace LoginSystem_server
+namespace Unyxe_corp_API
 {
     internal class Program
     {
@@ -27,17 +27,20 @@ namespace LoginSystem_server
 
 
         static bool http_display_mode = false;
-        static bool robust_enable = true;
+        static bool robust_enable = false;
 
         static Random rand = new Random();
 
         static string pre_http = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: ";
 
+        static TLS_library main_tls_lib = new TLS_library();
+        static string server_public_key = "<RSAKeyValue><Modulus>6Tp6hQV1fDSY1+5S9OwgyWZauDY/0NT1lQBktp+9axbDYDZG1hBYb+t2p/qceLGAMSY1VYrZX6TL1Ob1xRbEAgsw23DDKDlOKlK9TxjxJNId/F8fb8ZWjRQgjxnlsPNu+pyTxeg00hl5UPCj+ed81j1MDxirianm8q61MFBtYOE=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+        static string server_private_key = "<RSAKeyValue><Modulus>6Tp6hQV1fDSY1+5S9OwgyWZauDY/0NT1lQBktp+9axbDYDZG1hBYb+t2p/qceLGAMSY1VYrZX6TL1Ob1xRbEAgsw23DDKDlOKlK9TxjxJNId/F8fb8ZWjRQgjxnlsPNu+pyTxeg00hl5UPCj+ed81j1MDxirianm8q61MFBtYOE=</Modulus><Exponent>AQAB</Exponent><P>+5JIGhs+5mDnTcHPZO/QeXFTNJM9syxE4Nnj//iV815w0TrYgAox+oxyOySy6pWa7xSSHWOkjqu+lFL9va+6Bw==</P><Q>7VWIj6+Wq/UxyhGf7upFGLjEKFofjRFVdFgL1bsOf7fPXQWX/TOc1p3sStiqBRWBkaDWsG9iOcGZ6uioHsFz1w==</Q><DP>NZVPxDe/awSC394DFaW6ytMnfNBL2Qj51sayOIgzMDYSY45cJNGHGa2mexBzB2I8MOY5xQa/OyA7pI4Uu71dKw==</DP><DQ>VZK3kIdRHmNkNmWwcuaJT2afY6VLJwQO+codSk0N50MRQ4sWyDbp4ABFCJ+iff7JHwcNIcSneAe0RZzpsV0zNQ==</DQ><InverseQ>IIclu8r2E51bVeCJhqpevCXdPRmEh5AZK4eZcoArM6AK580ajw5S5J3uad8J5Y1Qqf/Hm04axp4DHnB9PRs9mQ==</InverseQ><D>3PRR7oPlce5Cfw+B+BdcWHFnsO10N9wJbUgaIgnj4fiG0DeblGGX5zAkEbATXSSMVgPks03/8eSmVuUYIcgXmCjjGhq2V1dn3Kr7tst5tTDZVzRlS7dPG2pXlvt8jutpI/YxbNMRgUKXyIHRpxQA1P4dmx19UUFbev9PHiQT4iE=</D></RSAKeyValue>";
 
         //TLS handshake params
         static List<int> active_connection_ids = new List<int>();
         static List<string> ip_addreses = new List<string>();
-        static List<TLS_library> tls_libs = new List<TLS_library>();
+        static List<byte[]> symm_keys = new List<byte[]>();
 
 
         //Bard API keys
@@ -169,8 +172,7 @@ namespace LoginSystem_server
 
         public static void Main()
         {
-            
-
+            Console.WriteLine(Encoding.ASCII.GetString(main_tls_lib.DecryptAssymetric(main_tls_lib.EncryptAssymetric(Encoding.ASCII.GetBytes("Key checking..."), server_public_key), server_private_key)));
             WriteRootDatabase();
             //Console.ReadLine();
 
@@ -231,14 +233,14 @@ namespace LoginSystem_server
             string display_message = act_msg.Substring(0, act_msg.Length < 200?act_msg.Length:199);
             if (connection_id != -1)
             {
-                TLS_library tls_lib = tls_libs[GetConnectionID(connection_id)];
-                act_msg = tls_lib.EncryptSymmetric(act_msg, tls_lib.GetSymmetricKey());
+                byte[] symm_key = symm_keys[GetConnectionID(connection_id)];
+                act_msg = main_tls_lib.EncryptSymmetric(act_msg, symm_key);
             }
             string msg = pre_http + act_msg.Length + "\r\n\r\n" + act_msg;
 
             byte[] message = Encoding.ASCII.GetBytes(msg);
             stream.Write(message, 0, message.Length);
-            Console.WriteLine("[" + ip_addreses[GetConnectionID(connection_id)] +" <=] "+display_message + "\n");
+            Console.WriteLine("["+DateTime.Now+"][" + ip_addreses[GetConnectionID(connection_id)] +" <=] "+display_message + "\n");
         }
 
         private static void Listen1()
@@ -273,6 +275,7 @@ namespace LoginSystem_server
 
         static async Task Listen_(TcpClient client)
         {
+            //Console.WriteLine("[DEBUG] " + "New request");
             using (client)
             {
                 NetworkStream stream = client.GetStream();
@@ -297,33 +300,46 @@ namespace LoginSystem_server
 
 
                 string body = request.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)[1];
+                
 
                 //TLS handshake/decryption
                 if (connection_id == -1) { return; }
                 int conn_id = GetConnectionID(connection_id);
                 if (conn_id == -1)
                 {
-                    //Console.WriteLine("New conn");
-                    try
+                    body = FromBase64(body);
+                    //Console.WriteLine(body);
+                    if (body.StartsWith("Client hello!"))
                     {
-                        TLS_library lib = new TLS_library();
-                        byte[] symm_key = lib.GetSymmetricKey();
-                        string pub_key = FromBase64(body);
-                        //Console.WriteLine(pub_key);
-                        string symm_key_enc = ToBase64FromByte(lib.EncryptAssymetric(symm_key, pub_key));
-                        active_connection_ids.Add(connection_id);
-                        ip_addreses.Add(client.Client.RemoteEndPoint.ToString());
-                        tls_libs.Add(lib);
-                        Send(stream, -1, symm_key_enc);
+                        
+                        Send(stream, -1, "Server hello! "+ToBase64(server_public_key)); 
+                        return;
                     }
-                    catch { Send(stream, -1, "Encryption failed"); }
-                    return;
+                    else if (body.StartsWith("Key! "))
+                    {
+                        try
+                        {
+                            string enc_key = body.Substring(5);
+                            TLS_library lib = new TLS_library();
+                            byte[] symm_key = FromBase64ToByte(Encoding.ASCII.GetString(main_tls_lib.DecryptAssymetric(FromBase64ToByte(enc_key), server_private_key)));
+                            symm_keys.Add(symm_key);
+                            active_connection_ids.Add(connection_id);
+                            ip_addreses.Add(client.Client.RemoteEndPoint.ToString());
+                            Send(stream, connection_id, "Finish!");
+                            return;
+                        }
+                        catch when (robust_enable){ Send(stream, -1, "Encryption failed"); return; }
+                    }
+                    else
+                    {
+                        Send(stream, -1, "Encryption failed"); return;
+                    }
+
                 }
                 else
                 {
-                    TLS_library lib = tls_libs[conn_id];
-                    byte[] symm_key = lib.GetSymmetricKey();
-                    body = lib.DecryptSymmetric(body, symm_key);
+                    byte[] symm_key = symm_keys[GetConnectionID(connection_id)];
+                    body = main_tls_lib.DecryptSymmetric(body, symm_key);
                 }
 
                 string message = FromBase64(body);
@@ -331,10 +347,10 @@ namespace LoginSystem_server
                 last_msg = message;
                 if (http_display_mode)
                 {
-                    Console.WriteLine("[" + client.Client.RemoteEndPoint.ToString() + "]" + request);
+                    Console.WriteLine("[" + DateTime.Now + "][" + client.Client.RemoteEndPoint.ToString() + "]" + request);
                 }
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[" + ip_addreses[GetConnectionID(connection_id)] +" =>] "+message + "\n");
+                Console.WriteLine("[" + DateTime.Now + "][" + ip_addreses[GetConnectionID(connection_id)] +" =>] "+message + "\n");
                 Console.ForegroundColor = ConsoleColor.Green;
 
                 try

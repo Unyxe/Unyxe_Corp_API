@@ -41,7 +41,12 @@ namespace Unyxe_Corp_API
             aesAlgorithm.GenerateKey();
             return aesAlgorithm.Key;
         }
-        
+        public byte[] DecryptAssymetric(byte[] input, string keys)
+        {
+            var rsa = new RSACryptoServiceProvider();
+            rsa.FromXmlString(keys);
+            return rsa.Decrypt(input, false);
+        }
         public byte[] EncryptAssymetric(byte[] input, string public_key)
         {
             var rsa = new RSACryptoServiceProvider();

@@ -14,8 +14,10 @@ namespace LoginSystem_client
 {
     internal class Program
     {
+        static string trusted_public_key = "<RSAKeyValue><Modulus>6Tp6hQV1fDSY1+5S9OwgyWZauDY/0NT1lQBktp+9axbDYDZG1hBYb+t2p/qceLGAMSY1VYrZX6TL1Ob1xRbEAgsw23DDKDlOKlK9TxjxJNId/F8fb8ZWjRQgjxnlsPNu+pyTxeg00hl5UPCj+ed81j1MDxirianm8q61MFBtYOE=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+
         static TLS_library tls_lib = new TLS_library();
-        static byte[] symm_key = null;
+        static byte[] symm_key = tls_lib.GetSymmetricKey();
         static bool handshake_done = false;
 
         static public string ips;
@@ -41,7 +43,7 @@ namespace LoginSystem_client
             TLSHandShake();
 
             //Ping();
-            
+
             Console.WriteLine();
             while (true)
             {
@@ -56,7 +58,7 @@ namespace LoginSystem_client
                     }
                     Send(message, 10);
                 }
-                catch(DivideByZeroException) { }
+                catch (DivideByZeroException) { }
             }
 
         }
@@ -65,17 +67,63 @@ namespace LoginSystem_client
             //Console.WriteLine("Sending");
             string code = File.ReadAllText(src_path);
             Console.WriteLine(code);
-            Send(req +"&src-"+ToBase64(code), 10);
+            Send(req + "&src-" + ToBase64(code), 10);
             //Console.WriteLine("Sent");
         }
+
+        /*
+        try
+        {
+            TLS_library lib = new TLS_library();
+            byte[] symm_key = lib.GetSymmetricKey();
+            string pub_key = FromBase64(body);
+            //Console.WriteLine(pub_key);
+            string symm_key_enc = ToBase64FromByte(lib.EncryptAssymetric(symm_key, pub_key));
+            active_connection_ids.Add(connection_id);
+            ip_addreses.Add(client.Client.RemoteEndPoint.ToString());
+            tls_libs.Add(lib);
+            Send(stream, -1, symm_key_enc);
+        }
+        catch { Send(stream, -1, "Encryption failed"); }
+        */
         public static void TLSHandShake()
         {
             Console.WriteLine("[TLS handshake] Started...");
-            Send(tls_lib.GetPublicKey(), 10);
-            symm_key = tls_lib.DecryptAssymetric(FromBase64ToByte(last_msg), tls_lib.GetPrivateKey());
-            handshake_done = true;
+            Send("Client hello!", 10);
+            if(last_msg.StartsWith("Server hello! "))
+            {
+                string server_public_key = FromBase64(last_msg.Substring(14));
+                //Console.WriteLine(server_public_key);
+                if(server_public_key != trusted_public_key)
+                {
+                    Console.WriteLine("Public key is not trusted! Continue?");
+                    if(Console.ReadLine() == "Y")
+                    {
+
+                    }
+                    else
+                    {
+                        while (true) { Console.WriteLine("Close an application now. "); Console.ReadLine(); }
+                    }
+                }
+                Send("Key! " + ToBase64FromByte(tls_lib.EncryptAssymetric(Encoding.ASCII.GetBytes(ToBase64FromByte(symm_key)), server_public_key)), 10);
+                string finish_response = tls_lib.DecryptSymmetric(last_msg, symm_key);
+                if (finish_response.StartsWith("Finish!"))
+                {
+                    handshake_done = true;
+                    Console.WriteLine("[TLS handshake] Success!");
+                }
+                else
+                {
+                    Console.WriteLine("Weird finish: " + finish_response);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Weird: " + last_msg);
+            }
             //Console.WriteLine(ToBase64FromByte(symm_key));
-            Console.WriteLine("[TLS handshake] Success!");
+            
         }
         public static void Send(string str, int timeout)
         {
@@ -93,10 +141,11 @@ namespace LoginSystem_client
             {
                 Send(@"<root>\log\", 1);
             }
-            
+
         }
         public static void SendHttp(string str, int timeout, string display_str)
         {
+            //Console.WriteLine("[DEBUG] " + str);
             HttpContent content = new StringContent(str + "~");
 
             HttpClient client = new HttpClient();
