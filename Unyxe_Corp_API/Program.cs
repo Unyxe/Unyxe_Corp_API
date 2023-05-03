@@ -163,7 +163,7 @@ namespace Unyxe_corp_API
         {
             new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0", "0", "0"},
             new string[]{ "0:2", "0:2", "0:1"  },
-            new string[]{ "0:2", "0:2", "0:1"  },
+            new string[]{ "0:2", "0:2", "0:1:2"  },
         };
 
         static List<string[]>[][] databases;
@@ -2232,7 +2232,7 @@ namespace Unyxe_corp_API
         //Bard
         public static string BardGetResponse(string input)
         {
-            return BardParseResponse(BardGetRawResponse(input.Replace("\n", string.Empty) + " Provide as much info as you can.") );
+            return BardParseResponse(BardGetRawResponse(input.Replace("\n", string.Empty)) );
         }
         public static string BardGetRawResponse(string input)
         {
