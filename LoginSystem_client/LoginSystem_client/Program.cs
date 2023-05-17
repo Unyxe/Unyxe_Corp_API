@@ -29,7 +29,8 @@ namespace LoginSystem_client
 
         static string binded_code = @"C:\binding.cs";
 
-        static string url = "http://unyxe.mywire.org:8080";
+        //static string url = "http://unyxe.mywire.org:8080";
+        static string url = "http://192.168.0.33:8080";
 
 
         public static void Main()

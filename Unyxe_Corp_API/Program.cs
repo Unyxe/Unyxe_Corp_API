@@ -13,6 +13,8 @@ using System.Text.Json.Nodes;
 using Unyxe_Corp_API;
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.InteropServices;
 
 namespace Unyxe_corp_API
 {
@@ -20,7 +22,9 @@ namespace Unyxe_corp_API
     {
         static IPAddress ipAddress = IPAddress.Any;
         static int port = 8080;
-        static TcpListener listener = new TcpListener(ipAddress, port);
+        static int port_tunnels = 8090;
+        static TcpListener listener_main = new TcpListener(ipAddress, port);
+        static TcpListener listener_tunnels = new TcpListener(ipAddress, port_tunnels);
 
 
         static public string last_msg = "";
@@ -48,6 +52,11 @@ namespace Unyxe_corp_API
         public static string[] bard_at_vars = new string[1] { "ABi_lZjZ6Ym_9M-LrT9Rhfwlr2rr:1682883560998" };
         public static int bard_api_key_num = 0;
 
+        //Svn tunnels
+        public static List<TcpClient> svn_tunnels_clients = new List<TcpClient>();
+        public static List<NetworkStream> svn_tunnels_streams = new List<NetworkStream>();
+        public static List<string> svn_tunnel_ids = new List<string>();
+
 
         static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
 
@@ -67,7 +76,7 @@ namespace Unyxe_corp_API
         };
 
 
-        static string[] apps = { "root", "chores", "bard_search" };
+        static string[] apps = { "root", "chores", "bard_search", "svntunnel" };
         static string[][] database_names =
         {
             new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods","method_bindings", "method_acls", "column_names", "default_values"},
@@ -82,6 +91,7 @@ namespace Unyxe_corp_API
         };
         static string[][] roles =
         {
+            new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
@@ -113,7 +123,7 @@ namespace Unyxe_corp_API
             //APP: bard_search
             new string[][]
             {
-                new string[] { "username", "password", "role"},
+                new string[] { "username", "password", "role", "credit"},
                 new string[] { "username", "auth_token"},
             },
         };
@@ -143,7 +153,7 @@ namespace Unyxe_corp_API
             //APP: bard_search
             new string[][]
             {
-                new string[] { "null", "null", "User"},
+                new string[] { "null", "null", "User", "100"},
                 new string[] { "null", "null"},
             },
         };
@@ -152,18 +162,21 @@ namespace Unyxe_corp_API
             new string[] { "sign", "log", "bind_code","list_ram_dbs","new_app", "delete_app", "new_db", "delete_db", "new_method", "delete_method"},
             new string[] { "sign", "log", "new_chore"},
             new string[] { "sign", "log", "search"},
+            new string[] { "req", "open_tunnel"},
         };
         static string[][] method_bindings =
         {
             new string[] { "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
+            new string[] { "hardcoded","hardcoded", },
         };
         static string[][] method_permissions =
         {
             new string[]{ "0", "0:2", "0","0", "0", "0", "0", "0", "0", "0"},
             new string[]{ "0:2", "0:2", "0:1"  },
             new string[]{ "0:2", "0:2", "0:1:2"  },
+            new string[]{ "0:1:2", "0:1:2"  },
         };
 
         static List<string[]>[][] databases;
@@ -172,6 +185,7 @@ namespace Unyxe_corp_API
 
         public static void Main()
         {
+            Console.WriteLine(SvnOpenTunnel("facebook.com", 443));
             Console.WriteLine(Encoding.ASCII.GetString(main_tls_lib.DecryptAssymetric(main_tls_lib.EncryptAssymetric(Encoding.ASCII.GetBytes("Key checking..."), server_public_key), server_private_key)));
             WriteRootDatabase();
             //Console.ReadLine();
@@ -193,9 +207,27 @@ namespace Unyxe_corp_API
             Console.WriteLine("Done\n");
             Console.WriteLine("Listening started!\n\n");
             Console.WriteLine(GetLocalIPAddress());
-            listener.Start();
+            listener_main.Start();
+            listener_tunnels.Start();
             Listen1();
-            Console.ReadLine();
+            bool to_sh = false;
+            while (true)
+            {
+               
+                switch (Console.ReadLine())
+                {
+                    case "clear":
+                        Console.Clear();
+                        break;
+                    case "shutdown":
+                        to_sh = true;
+                        break;
+                }
+                if (to_sh)
+                {
+                    break;
+                }
+            }
         }
 
 
@@ -224,12 +256,14 @@ namespace Unyxe_corp_API
         }
         static void Send(NetworkStream stream, int connection_id, string msg_str = null, byte[] msg_bytes = null)
         {
+            if(msg_str == null && msg_bytes == null) { return; }
             string act_msg = msg_str;
             
             if(msg_bytes != null)
             {
                 act_msg = ToBase64FromByte(msg_bytes);
             }
+            
             string display_message = act_msg.Substring(0, act_msg.Length < 200?act_msg.Length:199);
             if (connection_id != -1)
             {
@@ -245,16 +279,26 @@ namespace Unyxe_corp_API
 
         private static void Listen1()
         {
-            Thread listenThread = new Thread(new ThreadStart(Listen));
+            Thread listenThread = new Thread(new ThreadStart(ListenMain));
             listenThread.Start();
+            Thread listen_tunnelsThread = new Thread(new ThreadStart(ListenTunnels));
+            listen_tunnelsThread.Start();
         }
 
-        static async void Listen()
+        static async void ListenMain()
         {
             while (true)
             {
-                TcpClient client = await listener.AcceptTcpClientAsync();
+                TcpClient client = await listener_main.AcceptTcpClientAsync();
                 _ = Listen_(client);
+            }
+        }
+        static async void ListenTunnels()
+        {
+            while (true)
+            {
+                TcpClient client = await listener_tunnels.AcceptTcpClientAsync();
+                _ = ListenTunnels_(client);
             }
         }
         private static byte[] ReadNetworkStream(NetworkStream m_stream)
@@ -272,7 +316,49 @@ namespace Unyxe_corp_API
             //Console.WriteLine("Read finished");
             return m_buffer.ToArray();
         }
+        static async Task ListenTunnels_(TcpClient client)
+        {
+            NetworkStream stream = client.GetStream();
+            NetworkStream target = null;
+            string tunnel_id_str = "";
+            while (true)
+            {
+                var next = stream.ReadByte();
+                if (next == -1){ break;}
+                string t = Encoding.ASCII.GetString(new byte[] { (byte)next });
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(t);
+                if (tunnel_id_str.Length < 10) 
+                { 
+                    tunnel_id_str += t; 
+                    if (tunnel_id_str.Length == 10) 
+                    { 
+                        try 
+                        { 
+                            tunnel_id_str = Int32.Parse(tunnel_id_str) + ""; 
+                            /*Console.WriteLine("Tunnel ID identified: " + tunnel_id_str);*/ 
+                        } catch { return; } 
+                        int tunnel_ind = GetTunnelIndById(tunnel_id_str);
+                        if(tunnel_ind == -1) { return; }
+                        target = svn_tunnels_streams[tunnel_ind];
 
+                        Thread br = new Thread(() =>
+                        {
+                            while (true)
+                            {
+                                stream.WriteByte((byte)target.ReadByte());
+                            }
+                        });
+                        br.Start();
+                    }
+                }
+                else
+                {
+                    target.WriteByte((byte)stream.ReadByte());
+                }
+            }
+        }
+        
         static async Task Listen_(TcpClient client)
         {
             //Console.WriteLine("[DEBUG] " + "New request");
@@ -423,6 +509,7 @@ namespace Unyxe_corp_API
                     Console.WriteLine("Error occured, while trying to parse the message! " + e.Message);
                 }
             }
+            client.Close();
         }
         public static string DoMethod(string method, string app, string arguments_raw, NetworkStream stream, int connection_id)
         {
@@ -1273,6 +1360,8 @@ namespace Unyxe_corp_API
                         break;
                 }
             }
+
+            //Bard search app
             if(app == "bard_search")
             {
                 switch (method)
@@ -1281,10 +1370,28 @@ namespace Unyxe_corp_API
                         {
                             string query;
                             string auth_token = "";
-
+                            string mode;
 
 
                             int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "mode")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "mode_not_provided";
+                                return method_success;
+                            }
+                            mode = arg_values[index_found];
+
+
+
+                            index_found = -1;
                             for (int i = 0; i < arg_names.Count; i++)
                             {
                                 if (arg_names[i] == "query")
@@ -1327,8 +1434,8 @@ namespace Unyxe_corp_API
 
                             if (CheckPermission(auth_token, method, app))
                             {
-                                Console.WriteLine("[BARD] Sending {" + query + "} to bard.");
-                                string response = BardGetResponse(query);
+                                Console.WriteLine($"[BARD] Sending \"{query}\" with mode \"{mode}\" to bard.");
+                                string response = BardGetResponse(query, mode);
                                 //Send(stream, connection_id, "Success!");
                                 Send(stream, connection_id, response);
                             }
@@ -1339,9 +1446,162 @@ namespace Unyxe_corp_API
                         }
                         break;
                 }
+
+
             }
-            
-            
+
+            //SVN Tunnel app
+            if (app == "svntunnel")
+            {
+                switch (method)
+                {
+                    case "req":
+                        {
+                            string query;
+                            string auth_token = "";
+
+
+                            int index_found = -1;
+
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "query")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "query_not_provided";
+                                return method_success;
+                            }
+                            try
+                            {
+
+                                query = FromBase64(arg_values[index_found]);
+                            }
+                            catch when (robust_enable)
+                            {
+                                method_success = "invalid_query";
+                                return method_success;
+                            }
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+                            if (true) //No check requered
+                            {
+                                Console.WriteLine($"[SVNTunnel] Sending \n\"{query}\"\n to svn.");
+                                string response = SvnReq(query);
+                                
+                                Send(stream, connection_id, response);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "open_tunnel":
+                        {
+                            string hostname;
+                            int port_;
+                            string auth_token = "";
+
+
+                            int index_found = -1;
+
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "hostname")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "hostname_not_provided";
+                                return method_success;
+                            }
+                            hostname = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "port")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "port_not_provided";
+                                return method_success;
+                            }
+                            try
+                            {
+                                port_ = Int32.Parse(arg_values[index_found]);
+                            }
+                            catch
+                            {
+                                method_success = "invalid_port";
+                                return method_success;
+                            }
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+                            if (true) //No check requered
+                            {
+                                Console.WriteLine($"[SVNTunnel] Creating tunnel {hostname}:{port_}.");
+                                string response = SvnOpenTunnel(hostname, port_);
+                                Console.WriteLine($"[SVNTunnel] Tunnel successfully created! Id: {response}");
+                                Send(stream, connection_id, response);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                }
+
+
+            }
+
+
 
 
             return method_success;
@@ -2230,9 +2490,27 @@ namespace Unyxe_corp_API
         }
 
         //Bard
-        public static string BardGetResponse(string input)
+        public static string BardGetResponse(string input, string mode)
         {
-            return BardParseResponse(BardGetRawResponse(input.Replace("\n", string.Empty)) );
+            string[] system_messages = new string[]
+            {
+                "You are in conversation. Respond in a short way and chatty. You can respond only your response. Your name is 'AI assistant' unless user wants to change it. You MUST provide your response in a form of '@Your name: your response' You MUST NOT exceed the limit of 300 characters in your answer. You MUST only provide your answer. Your message history is: ~",
+                "You are in advanced search engine. Respond using long paragraphs and provide as much information as you can. Your topic is: ~",
+            };
+            int ind = -1;
+            switch (mode)
+            {
+                case "conversation":
+                    ind = 0;
+                    break;
+                case "deep_search":
+                    ind = 1;
+                    break;
+                default:
+                    return "Mode is incorrect";
+            }
+            string request = system_messages[ind] + input.Replace("\n", string.Empty) + "~";
+            return BardParseResponse(BardGetRawResponse(request));
         }
         public static string BardGetRawResponse(string input)
         {
@@ -2290,11 +2568,162 @@ namespace Unyxe_corp_API
             substr = JsonNode.Parse(json);
             return substr[0][0].ToString();
         }
+
+        //Svm
+        public static string SvnReq(string input)
+        {
+            string body = "";
+            if (input.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries).Length > 1)
+            {
+                body = input.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)[1];
+            }
+            string url = "";
+            string method = input.Split(' ')[0];
+            string host_ = "";
+            List<string> header_lines = input.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)[0].Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            header_lines.RemoveAt(0);
+            List<Cookie> cookies_list = new List<Cookie>();
+            foreach (string line in header_lines)
+            {
+                string[] b = line.Split(':');
+                string[] c = new string[2];
+                c[0] = b[0];
+                for(int i = 1; i < b.Length; i++)
+                {
+                    c[1] += b[i];
+                    if (i == b.Length - 1) break;
+                    c[1] += ":";
+                }
+                var cookie = new Cookie(c[0], c[1])
+                {
+                    Secure = true,
+                    HttpOnly = true,
+                };
+                if (c[0] == "Host")
+                {
+                    string hos = "";
+                    for(int i =0; i < c[1].Length; i++)
+                    {
+                        if (c[1][i] == ' ') { continue; }
+                        hos += c[1][i];
+                    }
+
+                    url = "http://" + hos + input.Split(' ')[1];
+                    if(input.Split(' ')[1].StartsWith("http://") || input.Split(' ')[1].StartsWith("https://"))
+                    {
+                        url = input.Split(' ')[1];
+                    }
+                    host_ = "http://" + hos;
+                }
+            }
+            return GetRawResponse(body, method, url,host_, cookies_list);
+        }
+        public static string SvnOpenTunnel(string hostname, int port)
+        {
+            TcpClient tcpClient = new TcpClient(hostname, port);
+            NetworkStream networkStream = tcpClient.GetStream();
+            string tunnel_id = rand.Next() + "";
+            svn_tunnels_clients.Add(tcpClient);
+            svn_tunnels_streams.Add(networkStream);
+            svn_tunnel_ids.Add(tunnel_id);
+            string tunnel_id_char10 = new String('0', 10-tunnel_id.Length) +tunnel_id;
+            return tunnel_id_char10;
+        }
+        public static byte[] SvnTunnelReq(string tunnel_id, byte[] bytes)
+        {
+            int tunnel_ind = GetTunnelIndById(tunnel_id);
+            TcpClient client = svn_tunnels_clients[tunnel_ind];
+            NetworkStream stream = svn_tunnels_streams[tunnel_ind];
+            stream.Write(bytes, 0, bytes.Length);
+            List<byte> bytes_res = new List<byte>();
+            client.Client.ReceiveTimeout = 1000;
+            while (true)
+            {
+                try
+                {
+                    bytes_res.Add((byte)stream.ReadByte());
+                }
+                catch { break; }
+            }
+            client.Client.ReceiveTimeout = 0;
+            return bytes_res.ToArray();
+        }
+        public static string GetRawResponse(string body, string method, string url,string host, List<Cookie> cookies)
+        {
+            var handler = new HttpClientHandler()
+            {
+                AllowAutoRedirect = false
+            };
+
+            var client = new HttpClient(handler);
+
+            HttpMethod m = HttpMethod.Get;
+            switch (method.ToLower())
+            {
+                case "get":
+                    m = HttpMethod.Get;
+                    break;
+                case "post":
+                    m = HttpMethod.Post;
+                    break;
+                case "put":
+                    m = HttpMethod.Put;
+                    break;
+                case "options":
+                    m = HttpMethod.Options;
+                    break;
+            }
+
+            var request = new HttpRequestMessage(m, url);
+
+            foreach (Cookie f in cookies) {
+
+                handler.CookieContainer.Add(f);
+            }
+
+            request.Headers.TryAddWithoutValidation("Origin", host);
+            if (method.ToLower() != "get")
+            {
+                var content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+                request.Content = content;
+            }
+            try
+            {
+                var response = client.SendAsync(request).GetAwaiter().GetResult();
+                var responseContent = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseHeaders = response.Headers;
+                string headers_str = "";
+                headers_str += ("HTTP/" + response.Version+" "+(int)response.StatusCode+" " + response.ReasonPhrase);
+                foreach(var g in responseHeaders)
+                {
+                    string val_str = "";
+                    foreach(var v in g.Value)
+                    {
+                        val_str += v + " ";   
+                    }
+                    headers_str += "\n" + g.Key + ": " + val_str;
+                }
+                return headers_str + "\r\n\r\n" + responseContent;
+            }
+            catch(Exception c)
+            {
+                Console.WriteLine(c.Message);
+                return "Invalid URL";
+            }
+
+            
+            return null;
+        }
+
         //___________________________________
 
 
 
-
+        static int GetTunnelIndById(string id)
+        {
+            return svn_tunnel_ids.IndexOf(id);
+        }
         static int GetParameterIndex(string[][] parameters, string parameter_name)
         {
             for(int i = 0; i < parameters.Length; i++)
@@ -2500,7 +2929,7 @@ namespace Unyxe_corp_API
             string role;
             int app_index = GetAppIndex(app);
             int db_index = GetDatabaseIndex(app, "users");
-            if (auth_token == "")
+            if (auth_token == "" || db_index == -1)
             {
                 role = "Anonymous";
             }
