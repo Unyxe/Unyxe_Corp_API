@@ -346,7 +346,15 @@ namespace Unyxe_corp_API
                         {
                             while (true)
                             {
-                                stream.WriteByte((byte)target.ReadByte());
+                                try
+                                {
+                                    int n = target.ReadByte();
+                                    stream.WriteByte((byte)n);
+                                }catch{
+                                    Console.WriteLine(target.CanWrite + "    " +target.CanRead);
+                                    int n = target.ReadByte();
+                                    stream.WriteByte((byte)n);
+                                }
                             }
                         });
                         br.Start();
