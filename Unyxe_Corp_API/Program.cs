@@ -23,8 +23,10 @@ namespace Unyxe_corp_API
         static IPAddress ipAddress = IPAddress.Any;
         static int port = 8080;
         static int port_tunnels = 8090;
+        static int port_request_tunnels = 8091;
         static TcpListener listener_main = new TcpListener(ipAddress, port);
         static TcpListener listener_tunnels = new TcpListener(ipAddress, port_tunnels);
+        static TcpListener listener_request_tunnels = new TcpListener(ipAddress, port_request_tunnels);
 
 
         static public string last_msg = "";
@@ -57,6 +59,15 @@ namespace Unyxe_corp_API
         public static List<NetworkStream> svn_tunnels_streams = new List<NetworkStream>();
         public static List<string> svn_tunnel_ids = new List<string>();
 
+        //ChatApp vars
+        public static List<TcpClient> chatapp_tunnels_clients = new List<TcpClient>();
+        public static List<NetworkStream> chatapp_tunnels_streams = new List<NetworkStream>();
+        public static List<string> chatapp_tunnel_ids = new List<string>();
+        public static List<string> chatapp_tunnel_auths = new List<string>();
+        public static List<string> chat_ids = new List<string>();
+        public static List<List<string>> chat_members_auths = new List<List<string>>();
+        public static List<string[]> messages_queue = new List<string[]>();
+
 
         static string home_dir = Directory.Exists(@"D:\UnyxeCorpAPI\") ? @"D:\UnyxeCorpAPI\" : @"L:\UnyxeCorpAPI\";
 
@@ -76,11 +87,13 @@ namespace Unyxe_corp_API
         };
 
 
-        static string[] apps = { "root", "chores", "bard_search", "svntunnel" };
+        static string[] apps = { "root", "chores", "bard_search", "svntunnel", "chatapp" };
         static string[][] database_names =
         {
             new string[] {"users", "auth_tokens", "apps", "database_names", "database_paths", "roles", "methods","method_bindings", "method_acls", "column_names", "default_values"},
             new string[] {"users", "auth_tokens", "chores"},
+            new string[] {"users", "auth_tokens"},
+            new string[] {"users", "auth_tokens"},
             new string[] {"users", "auth_tokens"},
         };
         static string[][] database_paths =
@@ -88,9 +101,12 @@ namespace Unyxe_corp_API
             new string[] {@"root\us.db", @"root\au.db", @"root\apps.db", @"root\dbnames.db",@"root\dbpaths.db",@"root\roles.db",@"root\methods.db", @"root\method_bindings.db",@"root\method_acls.db",@"root\column_names.db",@"root\def_vals.db",},
             new string[] {@"ChoresAPP\us.db", @"ChoresAPP\au.db", @"ChoresAPP\ch.db"},
             new string[] {@"bard_search\us.db", @"bard_search\au.db"},
+            new string[] {@"svn_tunnel\us.db", @"svn_tunnel\au.db"},
+            new string[] {@"chatapp\us.db", @"chatapp\au.db"},
         };
         static string[][] roles =
         {
+            new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
             new string[] { "Admin", "User", "Anonymous" },
@@ -126,6 +142,19 @@ namespace Unyxe_corp_API
                 new string[] { "username", "password", "role", "credit"},
                 new string[] { "username", "auth_token"},
             },
+            //APP: SVN Tunnel
+            new string[][]
+            {
+                new string[] { "username", "password", "role"},
+                new string[] { "username", "auth_token"},
+            },
+            //APP: Chat App
+            new string[][]
+            {
+                new string[] { "username", "password", "role"},
+                new string[] { "username", "auth_token"},
+            },
+
         };
         static string[][][] default_values =
         {
@@ -156,6 +185,18 @@ namespace Unyxe_corp_API
                 new string[] { "null", "null", "User", "100"},
                 new string[] { "null", "null"},
             },
+            //APP: svn_tunnel
+            new string[][]
+            {
+                new string[] { "null", "null"},
+                new string[] { "null", "null"},
+            },
+            //APP: ChatApp
+            new string[][]
+            {
+                new string[] { "null", "null"},
+                new string[] { "null", "null"},
+            },
         };
         static string[][] available_methods =
         {
@@ -163,6 +204,7 @@ namespace Unyxe_corp_API
             new string[] { "sign", "log", "new_chore"},
             new string[] { "sign", "log", "search"},
             new string[] { "req", "open_tunnel"},
+            new string[] { "sign", "log", "auth_tunnel","msg"},
         };
         static string[][] method_bindings =
         {
@@ -170,6 +212,7 @@ namespace Unyxe_corp_API
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded","hardcoded", },
+            new string[] { "hardcoded","hardcoded", "hardcoded", "hardcoded"},
         };
         static string[][] method_permissions =
         {
@@ -177,6 +220,7 @@ namespace Unyxe_corp_API
             new string[]{ "0:2", "0:2", "0:1"  },
             new string[]{ "0:2", "0:2", "0:1:2"  },
             new string[]{ "0:1:2", "0:1:2"  },
+            new string[]{ "0:2", "0:2", "0:1", "0:1"  },
         };
 
         static List<string[]>[][] databases;
@@ -209,6 +253,8 @@ namespace Unyxe_corp_API
             Console.WriteLine(GetLocalIPAddress());
             listener_main.Start();
             listener_tunnels.Start();
+            listener_request_tunnels.Start();
+            ChatAppMainframe();
             Listen1();
             bool to_sh = false;
             while (true)
@@ -267,14 +313,16 @@ namespace Unyxe_corp_API
             string display_message = act_msg.Substring(0, act_msg.Length < 200?act_msg.Length:199);
             if (connection_id != -1)
             {
-                byte[] symm_key = symm_keys[GetConnectionID(connection_id)];
+                byte[] symm_key = symm_keys[GetConnectionInd(connection_id)];
                 act_msg = main_tls_lib.EncryptSymmetric(act_msg, symm_key);
             }
             string msg = pre_http + act_msg.Length + "\r\n\r\n" + act_msg;
 
             byte[] message = Encoding.ASCII.GetBytes(msg);
             stream.Write(message, 0, message.Length);
-            Console.WriteLine("["+DateTime.Now+"][" + ip_addreses[GetConnectionID(connection_id)] +" <=] "+display_message + "\n");
+            int con_id = GetConnectionInd(connection_id);
+            if(con_id == -1) { return;}
+            Console.WriteLine("["+DateTime.Now+"][" + ip_addreses[con_id] +" <=] "+display_message + "\n");
         }
 
         private static void Listen1()
@@ -283,6 +331,8 @@ namespace Unyxe_corp_API
             listenThread.Start();
             Thread listen_tunnelsThread = new Thread(new ThreadStart(ListenTunnels));
             listen_tunnelsThread.Start();
+            Thread listen_request_tunnelsThread = new Thread(new ThreadStart(ListenReqTunnels));
+            listen_request_tunnelsThread.Start();
         }
 
         static async void ListenMain()
@@ -290,7 +340,9 @@ namespace Unyxe_corp_API
             while (true)
             {
                 TcpClient client = await listener_main.AcceptTcpClientAsync();
-                _ = Listen_(client);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                Task.Run(() => { Listen_(client); });
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             }
         }
         static async void ListenTunnels()
@@ -298,7 +350,19 @@ namespace Unyxe_corp_API
             while (true)
             {
                 TcpClient client = await listener_tunnels.AcceptTcpClientAsync();
-                _ = ListenTunnels_(client);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                Task.Run(() => { ListenTunnels_(client); });
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            }
+        }
+        static async void ListenReqTunnels()
+        {
+            while (true)
+            {
+                TcpClient client = await listener_request_tunnels.AcceptTcpClientAsync();
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                Task.Run(() => { ListenReqTunnel_(client); });
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             }
         }
         private static byte[] ReadNetworkStream(NetworkStream m_stream)
@@ -316,7 +380,7 @@ namespace Unyxe_corp_API
             //Console.WriteLine("Read finished");
             return m_buffer.ToArray();
         }
-        static async Task ListenTunnels_(TcpClient client)
+        static void ListenTunnels_(TcpClient client)
         {
             NetworkStream stream = client.GetStream();
             NetworkStream target = null;
@@ -338,7 +402,7 @@ namespace Unyxe_corp_API
                             tunnel_id_str = Int32.Parse(tunnel_id_str) + ""; 
                             /*Console.WriteLine("Tunnel ID identified: " + tunnel_id_str);*/ 
                         } catch { return; } 
-                        int tunnel_ind = GetTunnelIndById(tunnel_id_str);
+                        int tunnel_ind = SVNGetTunnelIndById(tunnel_id_str);
                         if(tunnel_ind == -1) { return; }
                         target = svn_tunnels_streams[tunnel_ind];
 
@@ -346,15 +410,7 @@ namespace Unyxe_corp_API
                         {
                             while (true)
                             {
-                                try
-                                {
-                                    int n = target.ReadByte();
-                                    stream.WriteByte((byte)n);
-                                }catch{
-                                    Console.WriteLine(target.CanWrite + "    " +target.CanRead);
-                                    int n = target.ReadByte();
-                                    stream.WriteByte((byte)n);
-                                }
+                                stream.WriteByte((byte)target.ReadByte());
                             }
                         });
                         br.Start();
@@ -366,8 +422,48 @@ namespace Unyxe_corp_API
                 }
             }
         }
+
+        static void ListenReqTunnel_(TcpClient client)
+        {
+            NetworkStream stream = client.GetStream();
+            chatapp_tunnels_clients.Add(client);
+            chatapp_tunnels_streams.Add(stream);
+            chatapp_tunnel_ids.Add(rand.Next() + "");
+            chatapp_tunnel_auths.Add("");
+            while (true)
+            {
+                if (!stream.DataAvailable) continue;
+                byte[] request_bytes = GetRequestFromNS(stream);
+                string str = Encoding.ASCII.GetString(request_bytes);
+                Console.WriteLine(str);
+                WriteBytesToNS(stream, Encoding.ASCII.GetBytes(tunnel_request_doer(str,stream)));
+            }
+        }
+        static void WriteBytesToNS(NetworkStream stream, byte[] bytes)
+        {
+            foreach(byte b in bytes)
+            {
+                stream.WriteByte(b);
+            }
+        }
+        static byte[] GetRequestFromNS(NetworkStream stream)
+        {
+            List<byte> byte_list = new List<byte>();
+            while (!stream.DataAvailable) { }
+            while (stream.DataAvailable)
+            {
+                int next = stream.ReadByte();
+                if (next == -1)
+                {
+                    break;
+                }
+                byte_list.Add((byte)next);
+                Thread.Sleep(1);
+            }
+            return byte_list.ToArray();
+        }
         
-        static async Task Listen_(TcpClient client)
+        static void Listen_(TcpClient client)
         {
             //Console.WriteLine("[DEBUG] " + "New request");
             using (client)
@@ -398,7 +494,7 @@ namespace Unyxe_corp_API
 
                 //TLS handshake/decryption
                 if (connection_id == -1) { return; }
-                int conn_id = GetConnectionID(connection_id);
+                int conn_id = GetConnectionInd(connection_id);
                 if (conn_id == -1)
                 {
                     body = FromBase64(body);
@@ -432,19 +528,18 @@ namespace Unyxe_corp_API
                 }
                 else
                 {
-                    byte[] symm_key = symm_keys[GetConnectionID(connection_id)];
+                    byte[] symm_key = symm_keys[GetConnectionInd(connection_id)];
                     body = main_tls_lib.DecryptSymmetric(body, symm_key);
                 }
 
                 string message = FromBase64(body);
-
                 last_msg = message;
                 if (http_display_mode)
                 {
                     Console.WriteLine("[" + DateTime.Now + "][" + client.Client.RemoteEndPoint.ToString() + "]" + request);
                 }
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[" + DateTime.Now + "][" + ip_addreses[GetConnectionID(connection_id)] +" =>] "+message + "\n");
+                Console.WriteLine("[" + DateTime.Now + "][" + ip_addreses[GetConnectionInd(connection_id)] + " =>] " + message + "\n");
                 Console.ForegroundColor = ConsoleColor.Green;
 
                 try
@@ -456,7 +551,6 @@ namespace Unyxe_corp_API
                     {
                         string method_success = "app_is_not_found";
                         Send(stream, connection_id, "Failed! Reason: " + method_success);
-                        return;
                     }
                     string[] args = ParseMessage(message, app);
 
@@ -516,8 +610,43 @@ namespace Unyxe_corp_API
                 {
                     Console.WriteLine("Error occured, while trying to parse the message! " + e.Message);
                 }
+
             }
             client.Close();
+        }
+        public static string tunnel_request_doer(string message, NetworkStream stream,int connection_id = -1)
+        {
+
+            string[] app_parse = ParseForApp(message);
+            message = app_parse[1];
+            string app = app_parse[0];
+            if (!apps.Contains(app))
+            {
+                string method_success = "app_is_not_found";
+                return "Failed! Reason: " + method_success;
+            }
+            string[] args = ParseMessage(message, app);
+            try
+            {
+                if (args[1] == "success")
+                {
+                    //Send("Success! Method: " + args[2] + " Message_Body: " + args[3], endp);
+                }
+                else
+                {
+                    //Send("Failed! Reason: " + args[1], endp);
+                }
+                if (args[1] == "success")
+                {
+                    string success_doing_method = DoMethod(args[2], app, args[3], stream, connection_id);
+                    return success_doing_method;
+                }
+            }
+            catch (Exception e) when (robust_enable)
+            {
+                return "Failed! Server error occured! " + e.Message;
+            }
+            return null;
         }
         public static string DoMethod(string method, string app, string arguments_raw, NetworkStream stream, int connection_id)
         {
@@ -1519,10 +1648,6 @@ namespace Unyxe_corp_API
                                 
                                 Send(stream, connection_id, response);
                             }
-                            else
-                            {
-                                method_success = "operation_not_permitted";
-                            }
                         }
                         break;
                     case "open_tunnel":
@@ -1598,6 +1723,149 @@ namespace Unyxe_corp_API
                                 Console.WriteLine($"[SVNTunnel] Tunnel successfully created! Id: {response}");
                                 Send(stream, connection_id, response);
                             }
+                        }
+                        break;
+                }
+
+
+            }
+            //ChatApp app
+            if (app == "chatapp")
+            {
+                switch (method)
+                {
+                    case "auth_tunnel":
+                        {
+                            string tunnel_id;
+                            string auth_token = "";
+
+
+                            int index_found = -1;
+
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "tunnel_id")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "tunnel_id_not_provided";
+                                return method_success;
+                            }
+                            tunnel_id = arg_values[index_found];
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                string display_username = GetUserByToken(auth_token, app).ToLower();
+                                Console.WriteLine($"[ChatApp] (" + tunnel_id + ")" + auth_token);
+                                string resp = ChatAppAuthorizeTunnel(auth_token, tunnel_id);
+                                return resp;
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "msg":
+                        {
+                            string query;
+                            string auth_token = "";
+                            string chat_id;
+
+
+                            int index_found = -1;
+
+
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "query")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "query_not_provided";
+                                return method_success;
+                            }
+                            try
+                            {
+
+                                query = FromBase64(arg_values[index_found]);
+                            }
+                            catch when (robust_enable)
+                            {
+                                method_success = "invalid_query";
+                                return method_success;
+                            }
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "chat_id")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "chat_id_not_provided";
+                                return method_success;
+                            }
+                            chat_id = arg_values[index_found];
+                            
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                string display_username = GetUserByToken(auth_token, app).ToLower();
+                                Console.WriteLine($"[ChatApp] ("+display_username+")" + query);
+                                string resp = ChatApp_msg(query, auth_token, chat_id);
+                                return query;
+                            }
                             else
                             {
                                 method_success = "operation_not_permitted";
@@ -1608,6 +1876,7 @@ namespace Unyxe_corp_API
 
 
             }
+
 
 
 
@@ -2577,7 +2846,7 @@ namespace Unyxe_corp_API
             return substr[0][0].ToString();
         }
 
-        //Svm
+        //Svn
         public static string SvnReq(string input)
         {
             string body = "";
@@ -2639,7 +2908,7 @@ namespace Unyxe_corp_API
         }
         public static byte[] SvnTunnelReq(string tunnel_id, byte[] bytes)
         {
-            int tunnel_ind = GetTunnelIndById(tunnel_id);
+            int tunnel_ind = SVNGetTunnelIndById(tunnel_id);
             TcpClient client = svn_tunnels_clients[tunnel_ind];
             NetworkStream stream = svn_tunnels_streams[tunnel_ind];
             stream.Write(bytes, 0, bytes.Length);
@@ -2719,18 +2988,111 @@ namespace Unyxe_corp_API
                 Console.WriteLine(c.Message);
                 return "Invalid URL";
             }
+        }
 
-            
-            return null;
+        //ChatApp
+
+        static void ChatAppMainframe()
+        {
+            Thread messages_queue_thread = new Thread(() =>
+            {
+                while (true)
+                {
+                    if (messages_queue.Count <= 0) continue;
+                    List<string[]> messages_current = new List<string[]>();
+                    for(int i = 0; i < messages_queue.Count; i++)
+                    {
+                        messages_current.Add(messages_queue[i]);
+                    }
+                    foreach (string[] message in messages_current)
+                    {
+                        bool valid = ChatAppValidateMessage(message);
+                        if (valid)
+                        {
+                            List<NetworkStream> all_tunnels_members = new List<NetworkStream>();
+                            string[] auth_tokens_members = GetAuthTokensByChatID(message[1]);
+                            foreach(string a in auth_tokens_members)
+                            {
+                                NetworkStream[] tunnels_per_auth = ChatAppGetTunnelsByAuthToken(a);
+                                foreach(NetworkStream s in tunnels_per_auth)
+                                {
+                                    all_tunnels_members.Add(s);
+                                }
+                            }
+
+                            foreach(NetworkStream stream_member in all_tunnels_members)
+                            {
+                                WriteBytesToNS(stream_member, Encoding.ASCII.GetBytes("[new_msg]?msg-" + message[2] + "&display_name-" + GetUserByToken(message[0], "chatapp") + "&chat_id-" + message[1]));
+                            }
+                        }
+                    }
+                }
+            });
+            messages_queue_thread.Start();
+        }
+        static string ChatApp_msg(string msg, string auth_token, string chat_id)
+        {
+            messages_queue.Add(new string[] {auth_token, chat_id, msg});
+            return "success";
+        }
+        static string ChatAppAuthorizeTunnel(string auth_token, string tunnel_id)
+        {
+            int tunnel_ind = ChatAppGetTunnelIndByID(tunnel_id);
+            if (chatapp_tunnel_auths[tunnel_ind] == "")
+            {
+                chatapp_tunnel_auths[tunnel_ind] = auth_token;
+            }
+            else { return "already_authed"; }
+            return "success";
+        }
+        static bool ChatAppMessageSending(string[] message)
+        {
+            return false;
+        }
+        static bool ChatAppValidateMessage(string[] message)
+        {
+            if (message.Length != 3) return false;
+            string authtoken = message[0];
+            string chat_id = message[1];
+            string message_body = message[2];
+            int chat_ind = chat_ids.IndexOf(chat_id);
+            if (chat_ind == -1) return false;
+            foreach(string auth_token in chat_members_auths[chat_ind])
+            {
+                if (authtoken == auth_token) return true;
+            }
+            return false;
+        }
+        static string[] GetAuthTokensByChatID(string chat_id)
+        {
+            return chat_members_auths[chat_ids.IndexOf(chat_id)].ToArray();
+        }
+        static NetworkStream[] ChatAppGetTunnelsByAuthToken(string auth)
+        {
+            List<NetworkStream> tunnels = new List<NetworkStream>();
+            int ind = 0;
+            foreach(string s in chatapp_tunnel_auths)
+            {
+                if(s == auth)
+                {
+                    tunnels.Add(chatapp_tunnels_streams[ind]);
+                }
+                ind++;
+            }
+            return tunnels.ToArray();
         }
 
         //___________________________________
 
 
 
-        static int GetTunnelIndById(string id)
+        static int SVNGetTunnelIndById(string id)
         {
             return svn_tunnel_ids.IndexOf(id);
+        }
+        static int ChatAppGetTunnelIndByID(string id)
+        {
+            return chatapp_tunnel_ids.IndexOf(id);
         }
         static int GetParameterIndex(string[][] parameters, string parameter_name)
         {
@@ -2919,7 +3281,7 @@ namespace Unyxe_corp_API
             return -1;
         }
 
-        static int GetConnectionID(int connection_id)
+        static int GetConnectionInd(int connection_id)
         {
             int index = 0;
             foreach (int c_id in active_connection_ids)
