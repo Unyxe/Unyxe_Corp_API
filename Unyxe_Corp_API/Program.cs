@@ -15,6 +15,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.InteropServices;
+using System.Reflection;
 
 namespace Unyxe_corp_API
 {
@@ -64,8 +65,9 @@ namespace Unyxe_corp_API
         public static List<NetworkStream> chatapp_tunnels_streams = new List<NetworkStream>();
         public static List<string> chatapp_tunnel_ids = new List<string>();
         public static List<string> chatapp_tunnel_auths = new List<string>();
-        public static List<string> chat_ids = new List<string>();
-        public static List<List<string>> chat_members_auths = new List<List<string>>();
+        public static List<string> chatapp_channel_ids = new List<string>();
+        public static List<string> chatapp_channel_names = new List<string>();
+        public static List<List<string>> chatapp_channels_members_auths = new List<List<string>>();
         public static List<string[]> messages_queue = new List<string[]>();
 
 
@@ -204,7 +206,7 @@ namespace Unyxe_corp_API
             new string[] { "sign", "log", "new_chore"},
             new string[] { "sign", "log", "search"},
             new string[] { "req", "open_tunnel"},
-            new string[] { "sign", "log", "auth_tunnel","msg"},
+            new string[] { "sign", "log", "auth_tunnel","msg", "create_channel", "join_channel"},
         };
         static string[][] method_bindings =
         {
@@ -212,7 +214,7 @@ namespace Unyxe_corp_API
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded", "hardcoded", "hardcoded"},
             new string[] { "hardcoded","hardcoded", },
-            new string[] { "hardcoded","hardcoded", "hardcoded", "hardcoded"},
+            new string[] { "hardcoded","hardcoded", "hardcoded", "hardcoded", "hardcoded", "hardcoded"},
         };
         static string[][] method_permissions =
         {
@@ -220,7 +222,7 @@ namespace Unyxe_corp_API
             new string[]{ "0:2", "0:2", "0:1"  },
             new string[]{ "0:2", "0:2", "0:1:2"  },
             new string[]{ "0:1:2", "0:1:2"  },
-            new string[]{ "0:2", "0:2", "0:1", "0:1"  },
+            new string[]{ "0:2", "0:2", "0:1", "0:1", "0:1", "0:1"  },
         };
 
         static List<string[]>[][] databases;
@@ -329,8 +331,8 @@ namespace Unyxe_corp_API
         {
             Thread listenThread = new Thread(new ThreadStart(ListenMain));
             listenThread.Start();
-            Thread listen_tunnelsThread = new Thread(new ThreadStart(ListenTunnels));
-            listen_tunnelsThread.Start();
+            //Thread listen_tunnelsThread = new Thread(new ThreadStart(ListenTunnels));
+            //listen_tunnelsThread.Start();
             Thread listen_request_tunnelsThread = new Thread(new ThreadStart(ListenReqTunnels));
             listen_request_tunnelsThread.Start();
         }
@@ -428,37 +430,41 @@ namespace Unyxe_corp_API
             NetworkStream stream = client.GetStream();
             chatapp_tunnels_clients.Add(client);
             chatapp_tunnels_streams.Add(stream);
-            chatapp_tunnel_ids.Add(rand.Next() + "");
+            string tunnel_id = rand.Next() + "";
+            chatapp_tunnel_ids.Add(tunnel_id);
             chatapp_tunnel_auths.Add("");
+            WriteBytesToNS(stream, Encoding.ASCII.GetBytes(tunnel_id));
             while (true)
             {
                 if (!stream.DataAvailable) continue;
                 byte[] request_bytes = GetRequestFromNS(stream);
                 string str = Encoding.ASCII.GetString(request_bytes);
                 Console.WriteLine(str);
-                WriteBytesToNS(stream, Encoding.ASCII.GetBytes(tunnel_request_doer(str,stream)));
             }
         }
         static void WriteBytesToNS(NetworkStream stream, byte[] bytes)
         {
-            foreach(byte b in bytes)
+            try
             {
-                stream.WriteByte(b);
+                foreach (byte b in bytes)
+                {
+                    stream.WriteByte(b);
+                }
+                stream.WriteByte(126);
             }
+            catch { return; }
         }
         static byte[] GetRequestFromNS(NetworkStream stream)
         {
             List<byte> byte_list = new List<byte>();
-            while (!stream.DataAvailable) { }
-            while (stream.DataAvailable)
+            while (true)
             {
                 int next = stream.ReadByte();
-                if (next == -1)
+                if (next == -1 || next == 126)
                 {
                     break;
                 }
                 byte_list.Add((byte)next);
-                Thread.Sleep(1);
             }
             return byte_list.ToArray();
         }
@@ -470,7 +476,12 @@ namespace Unyxe_corp_API
             {
                 NetworkStream stream = client.GetStream();
 
-                string request = Encoding.ASCII.GetString(ReadNetworkStream(stream));
+                string request = "";
+                try
+                {
+                    request = Encoding.ASCII.GetString(ReadNetworkStream(stream));
+                }
+                catch { return; }
 
                 // Get the content length from the headers
                 int contentLength = 0;
@@ -488,7 +499,7 @@ namespace Unyxe_corp_API
                 }
 
 
-
+                if (!request.StartsWith("POST")) { return; }
                 string body = request.Split(new string[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries)[1];
                 
 
@@ -1734,6 +1745,112 @@ namespace Unyxe_corp_API
             {
                 switch (method)
                 {
+                    case "create_channel":
+                        {
+                            string channel_name;
+                            string auth_token = "";
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "channel_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "channel_name_not_provided";
+                                return method_success;
+                            }
+                            channel_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                string display_name = "";
+                                int iter = 0;
+                                while (true)
+                                {
+                                    display_name = channel_name + "#" + rand.Next() % 10 + "" + rand.Next() % 10 + "" + rand.Next() % 10 + "" + rand.Next() % 10;
+                                    iter++;
+                                    if (!chatapp_channel_names.Contains(display_name)) { break; }
+                                    if (iter > 1000) return "channel_name_too_common";
+                                }
+                                string id = rand.Next() + "";
+                                Console.WriteLine($"[ChatApp] Creating new channel: " + display_name);
+                                string resp = ChatAppCreateChannel(display_name, auth_token, id);
+                                Send(stream, connection_id, resp + "?name-"+display_name + "&id-"+id);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
+                    case "join_channel":
+                        {
+                            string channel_name;
+                            string auth_token = "";
+
+
+                            int index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "channel_name")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found == -1)
+                            {
+                                method_success = "channel_name_not_provided";
+                                return method_success;
+                            }
+                            channel_name = arg_values[index_found];
+
+                            index_found = -1;
+                            for (int i = 0; i < arg_names.Count; i++)
+                            {
+                                if (arg_names[i] == "auth")
+                                {
+                                    index_found = i;
+                                    break;
+                                }
+                            }
+                            if (index_found != -1)
+                            {
+                                auth_token = arg_values[index_found];
+                            }
+
+                            if (CheckPermission(auth_token, method, app))
+                            {
+                                Console.WriteLine($"[ChatApp] Joining channel: " + channel_name  + " : " + auth_token);
+                                string resp = ChatAppJoinChannel(channel_name, auth_token);
+                                Send(stream, connection_id, resp);
+                            }
+                            else
+                            {
+                                method_success = "operation_not_permitted";
+                            }
+                        }
+                        break;
                     case "auth_tunnel":
                         {
                             string tunnel_id;
@@ -1780,9 +1897,9 @@ namespace Unyxe_corp_API
                             if (CheckPermission(auth_token, method, app))
                             {
                                 string display_username = GetUserByToken(auth_token, app).ToLower();
-                                Console.WriteLine($"[ChatApp] (" + tunnel_id + ")" + auth_token);
+                                Console.WriteLine($"[ChatApp] Authorizing tunnel: "+tunnel_id+" on auth_token: " + auth_token);
                                 string resp = ChatAppAuthorizeTunnel(auth_token, tunnel_id);
-                                return resp;
+                                Send(stream, connection_id, resp);
                             }
                             else
                             {
@@ -1864,7 +1981,7 @@ namespace Unyxe_corp_API
                                 string display_username = GetUserByToken(auth_token, app).ToLower();
                                 Console.WriteLine($"[ChatApp] ("+display_username+")" + query);
                                 string resp = ChatApp_msg(query, auth_token, chat_id);
-                                return query;
+                                Send(stream, connection_id, resp);
                             }
                             else
                             {
@@ -2766,7 +2883,7 @@ namespace Unyxe_corp_API
             return success_adding;
         }
 
-        //Bard
+                  //Bard
         public static string BardGetResponse(string input, string mode)
         {
             string[] system_messages = new string[]
@@ -3002,15 +3119,21 @@ namespace Unyxe_corp_API
                     List<string[]> messages_current = new List<string[]>();
                     for(int i = 0; i < messages_queue.Count; i++)
                     {
-                        messages_current.Add(messages_queue[i]);
+                        messages_current.Add(CopyArray(messages_queue[i]));
+                    }
+                    for(int i = 0; i < messages_current.Count; i++)
+                    {
+                        messages_queue.RemoveAt(0);
                     }
                     foreach (string[] message in messages_current)
                     {
                         bool valid = ChatAppValidateMessage(message);
+                        Console.WriteLine("Message is valid: "+ valid);
                         if (valid)
                         {
                             List<NetworkStream> all_tunnels_members = new List<NetworkStream>();
                             string[] auth_tokens_members = GetAuthTokensByChatID(message[1]);
+                            Console.WriteLine("Sending to " + auth_tokens_members.Length + "members...");
                             foreach(string a in auth_tokens_members)
                             {
                                 NetworkStream[] tunnels_per_auth = ChatAppGetTunnelsByAuthToken(a);
@@ -3019,8 +3142,8 @@ namespace Unyxe_corp_API
                                     all_tunnels_members.Add(s);
                                 }
                             }
-
-                            foreach(NetworkStream stream_member in all_tunnels_members)
+                            Console.WriteLine("Sending to " + all_tunnels_members.Count + "clients...");
+                            foreach (NetworkStream stream_member in all_tunnels_members)
                             {
                                 WriteBytesToNS(stream_member, Encoding.ASCII.GetBytes("[new_msg]?msg-" + message[2] + "&display_name-" + GetUserByToken(message[0], "chatapp") + "&chat_id-" + message[1]));
                             }
@@ -3030,9 +3153,38 @@ namespace Unyxe_corp_API
             });
             messages_queue_thread.Start();
         }
+        static string[] CopyArray(string[] array)
+        {
+            string[] array2 = new string[array.Length];
+            for(int i =0; i< array.Length; i++)
+            {
+                array2[i] = array[i];
+            }
+            return array2;
+        }
+        
+        static string ChatAppCreateChannel(string channel_name, string auth_token, string id)
+        {
+            chatapp_channel_ids.Add(id);
+            chatapp_channel_names.Add(channel_name);
+            List<string> m = new List<string>
+            {
+                auth_token
+            };
+            chatapp_channels_members_auths.Add(m);
+            return "success";
+        }
+        static string ChatAppJoinChannel(string channel_name, string auth_token)
+        {
+            int ind = ChatAppGetChannelByName(channel_name);
+            if (ind == -1) return "channel_name_doesnt_exist";
+            if (chatapp_channels_members_auths[ind].Contains(auth_token)) { return "already_a_member"; }
+            chatapp_channels_members_auths[ind].Add(auth_token);
+            return "success";
+        }
         static string ChatApp_msg(string msg, string auth_token, string chat_id)
         {
-            messages_queue.Add(new string[] {auth_token, chat_id, msg});
+            messages_queue.Add(new string[] {auth_token, chat_id, msg, rand.Next()+""});
             return "success";
         }
         static string ChatAppAuthorizeTunnel(string auth_token, string tunnel_id)
@@ -3051,13 +3203,14 @@ namespace Unyxe_corp_API
         }
         static bool ChatAppValidateMessage(string[] message)
         {
-            if (message.Length != 3) return false;
+            if (message == null) return false;
+            if (message.Length != 4) return false;
             string authtoken = message[0];
             string chat_id = message[1];
             string message_body = message[2];
-            int chat_ind = chat_ids.IndexOf(chat_id);
+            int chat_ind = chatapp_channel_ids.IndexOf(chat_id);
             if (chat_ind == -1) return false;
-            foreach(string auth_token in chat_members_auths[chat_ind])
+            foreach(string auth_token in chatapp_channels_members_auths[chat_ind])
             {
                 if (authtoken == auth_token) return true;
             }
@@ -3065,7 +3218,7 @@ namespace Unyxe_corp_API
         }
         static string[] GetAuthTokensByChatID(string chat_id)
         {
-            return chat_members_auths[chat_ids.IndexOf(chat_id)].ToArray();
+            return chatapp_channels_members_auths[chatapp_channel_ids.IndexOf(chat_id)].ToArray();
         }
         static NetworkStream[] ChatAppGetTunnelsByAuthToken(string auth)
         {
@@ -3093,6 +3246,10 @@ namespace Unyxe_corp_API
         static int ChatAppGetTunnelIndByID(string id)
         {
             return chatapp_tunnel_ids.IndexOf(id);
+        }
+        static int ChatAppGetChannelByName(string name)
+        {
+            return chatapp_channel_names.IndexOf(name);
         }
         static int GetParameterIndex(string[][] parameters, string parameter_name)
         {
@@ -3296,12 +3453,17 @@ namespace Unyxe_corp_API
         }
         static bool CheckPermission(string auth_token, string method, string app)
         {
+            if(app != "root")
+            {
+                if (CheckPermission(auth_token, "sign", "root")) return true;
+            }
             string role;
             int app_index = GetAppIndex(app);
             int db_index = GetDatabaseIndex(app, "users");
             if (auth_token == "" || db_index == -1)
             {
                 role = "Anonymous";
+                
             }
             else if (CheckAuthTokenPresenceByToken(auth_token, app))
             {
@@ -3320,6 +3482,7 @@ namespace Unyxe_corp_API
                 }
                 role_index++;
             }
+            
             int method_index = 0;
             foreach (string r in available_methods[app_index])
             {
@@ -3330,6 +3493,7 @@ namespace Unyxe_corp_API
                 method_index++;
             }
             string[] method_permission = method_permissions[app_index][method_index].Split(':');
+            Console.WriteLine("[PERMISSION CHECKING] " + role + " " + role_index + " " + auth_token + " " + method_permissions[app_index][method_index] + " " + db_index);
             foreach (string role_test in method_permission)
             {
                 if (role_index == Int32.Parse(role_test))

@@ -138,14 +138,14 @@
     </dependentAssembly>
   </dependency>
   <dependency>
-    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="Unyxe_Corp_API.exe" size="63408">
+    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="Unyxe_Corp_API.exe" size="66480">
       <assemblyIdentity name="Unyxe_Corp_API" version="1.0.0.0" language="neutral" processorArchitecture="msil" />
       <hash>
         <dsig:Transforms>
           <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
         </dsig:Transforms>
         <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-        <dsig:DigestValue>JJaxe/KlJEaROajzPb7E+C1ZbQ5ILmmliuVtZATRI6g=</dsig:DigestValue>
+        <dsig:DigestValue>oIOe5lxkmSSSqnrg8TAzUEJqZRZ+iYFLnkHREg1kV+4=</dsig:DigestValue>
       </hash>
     </dependentAssembly>
   </dependency>
